@@ -1216,7 +1216,7 @@ let appStats = loadStats();
 let sessionRecorded = false;
 
 function getTodayDateKey() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 function loadStats() {
@@ -1270,8 +1270,8 @@ function renderHomeStats() {
     return;
   }
 
-  const latestDays = days.slice(0, 7).reverse();
-  for (const d of latestDays) {
+  const recentDaysChronological = days.slice(0, 7).reverse();
+  for (const d of recentDaysChronological) {
     const li = document.createElement("li");
     li.innerText = `${d}: ${appStats.dailyDefeated[d]}問`;
     dailyList.appendChild(li);
@@ -1413,9 +1413,9 @@ function checkAnswer(btn, selected, correct) {
       const reviewQuestion = currentQuestions[currentIndex];
       // 1〜3問先に再配置して、近いタイミングで復習できるようにする
       const minInsertPos = currentIndex + 1;
-      const maxInsertPos = Math.min(currentIndex + 3, currentQuestions.length);
-      if (minInsertPos <= maxInsertPos) {
-        const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPos - minInsertPos + 1));
+      const maxInsertPosExclusive = Math.min(currentIndex + 4, currentQuestions.length + 1);
+      if (minInsertPos < maxInsertPosExclusive) {
+        const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPosExclusive - minInsertPos));
         currentQuestions.splice(insertPos, 0, reviewQuestion);
       }
     }
