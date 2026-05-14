@@ -1314,7 +1314,9 @@ function checkAnswer(btn, selected, correct) {
     if (mistakeFocusMode) {
       const reviewQuestion = currentQuestions[currentIndex];
       // 1〜3問先に再配置して、近いタイミングで復習できるようにする
-      const insertPos = Math.min(currentQuestions.length, currentIndex + 1 + Math.floor(Math.random() * 3));
+      const minInsertPos = currentIndex + 1;
+      const maxInsertPos = Math.min(currentIndex + 3, currentQuestions.length);
+      const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPos - minInsertPos + 1));
       currentQuestions.splice(insertPos, 0, reviewQuestion);
     }
     // 正解のボタンを緑にする
@@ -1338,6 +1340,10 @@ function nextQuestion() {
 }
 
 function returnToTitle() {
+  currentQuestions = [];
+  currentIndex = 0;
+  score = 0;
+  mistakeCounts = {};
   document.getElementById("result-screen").classList.add("hidden");
   document.getElementById("quiz-screen").classList.add("hidden");
   document.getElementById("setup-screen").classList.remove("hidden");
