@@ -83,6 +83,13 @@
     </select>
   </div>
 
+  <div class="filter-group">
+    <label style="font-weight: normal;">
+      <input type="checkbox" id="focus-mistakes-mode">
+      ❗ 間違えた問題を重点的に解くモード
+    </label>
+  </div>
+
   <button onclick="startQuiz()">クイズをはじめる</button>
 </div>
 
@@ -97,7 +104,7 @@
 <div class="container hidden" id="result-screen">
   <h1>結果発表 🎉</h1>
   <div class="score-display" id="final-score"></div>
-  <button onclick="location.reload()">タイトルに戻る</button>
+  <button onclick="returnToTitle()">タイトルに戻る</button>
 </div>
 
 <script>
@@ -1182,6 +1189,13 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
+let mistakeCounts = {};
+let mistakeFocusMode = false;
+
+function getQuestionColorByMistake(count) {
+  const colors = ["#2c3e50", "#d35400", "#c0392b", "#8e44ad", "#2d3436"];
+  return colors[Math.min(count, colors.length - 1)];
+}
 
 function startQuiz() {
   const filterType = document.getElementById("filter-type").value;
@@ -1189,6 +1203,7 @@ function startQuiz() {
   const filterRegion = document.getElementById("filter-region").value;
   const filterEra = document.getElementById("filter-era").value;
   const filterDifficulty = document.getElementById("filter-difficulty").value;
+  mistakeFocusMode = document.getElementById("focus-mistakes-mode").checked;
 
   // フィルタリング処理
   currentQuestions = questionDB.filter(q => {
@@ -1216,9 +1231,11 @@ function startQuiz() {
 
 function showQuestion() {
   const qData = currentQuestions[currentIndex];
+  const mistakes = mistakeCounts[qData.question] || 0;
   document.getElementById("question-meta").innerText = 
-    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.difficulty}]`;
+    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.difficulty}] [ミス:${mistakes}]`;
   document.getElementById("question-text").innerText = qData.question;
+  document.getElementById("question-text").style.color = getQuestionColorByMistake(mistakes);
   document.getElementById("feedback").innerText = "";
   document.getElementById("next-btn").classList.add("hidden");
 
@@ -1279,6 +1296,16 @@ function checkAnswer(btn, selected, correct) {
     btn.classList.add("wrong");
     document.getElementById("feedback").innerText = `❌ 不正解... (正解は: ${correct})`;
     document.getElementById("feedback").style.color = "#e74c3c";
+    const wrongQuestion = currentQuestions[currentIndex].question;
+    mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
+    document.getElementById("question-text").style.color =
+      getQuestionColorByMistake(mistakeCounts[wrongQuestion]);
+
+    if (mistakeFocusMode) {
+      const reviewQuestion = currentQuestions[currentIndex];
+      const insertPos = Math.min(currentQuestions.length, currentIndex + 1 + Math.floor(Math.random() * 3));
+      currentQuestions.splice(insertPos, 0, reviewQuestion);
+    }
     // 正解のボタンを緑にする
     buttons.forEach(b => {
       if(b.innerText === correct) b.classList.add("correct");
@@ -1297,6 +1324,12 @@ function nextQuestion() {
     document.getElementById("final-score").innerText = 
       `${currentQuestions.length}問中、${score}問正解しました！`;
   }
+}
+
+function returnToTitle() {
+  document.getElementById("result-screen").classList.add("hidden");
+  document.getElementById("quiz-screen").classList.add("hidden");
+  document.getElementById("setup-screen").classList.remove("hidden");
 }
 </script>
 </body>
