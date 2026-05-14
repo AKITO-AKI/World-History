@@ -30,13 +30,26 @@
   <p style="text-align:center; font-size:0.9em; color:#666;">フィルタを選んでスタートしてください</p>
   
   <div class="filter-group">
-    <label>📌 ジャンル (人物・王朝など)</label>
+    <label>📌 出題タイプ (人物・王朝など)</label>
     <select id="filter-type">
       <option value="すべて">すべて</option>
       <option value="人物">人物</option>
       <option value="王朝・国家">王朝・国家</option>
       <option value="文化・宗教">文化・宗教</option>
       <option value="その他">その他・出来事</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>📚 テーマジャンル</label>
+    <select id="filter-theme">
+      <option value="すべて">すべて</option>
+      <option value="中世ヨーロッパの展開">中世ヨーロッパの展開</option>
+      <option value="大航海時代とルネサンス">大航海時代とルネサンス</option>
+      <option value="アメリカ独立とフランス革命">アメリカ独立とフランス革命</option>
+      <option value="帝国主義と二つの世界大戦">帝国主義と二つの世界大戦</option>
+      <option value="文化史・科学史">文化史・科学史</option>
+      <option value="その他">その他</option>
     </select>
   </div>
 
@@ -1082,11 +1095,33 @@ const rawData = [
   ["1981年に中国で指導者の立場に立ち社会主事市場経済の推進を行ったのは誰か?","鄧小平"],
   ["1986年からベトナムではじめられた緩やかな市場経済をおこなう経済政策をなんというか?","ドイモイ"],
   ["1989年に開放された東西ドイツの往来を遮断していたものは何か?","ベルリンの壁"],
-  ["1989年に中国で起こった民主化を要求する学生を政府が弾圧した事件を何というか?","天安門事件"]
+  ["1989年に中国で起こった民主化を要求する学生を政府が弾圧した事件を何というか?","天安門事件"],
+  ["11世紀末、聖地エルサレム奪還を目的に提唱された軍事遠征は何か?","十字軍","中世ヨーロッパの展開"],
+  ["1077年、教皇グレゴリウス7世に皇帝ハインリヒ4世が屈服した事件は何か?","カノッサの屈辱","中世ヨーロッパの展開"],
+  ["百年戦争でオルレアン解放を指揮したフランスの少女は誰か?","ジャンヌ・ダルク","中世ヨーロッパの展開"],
+  ["14世紀にヨーロッパで大流行し人口減少を招いた感染症は何か?","ペスト（黒死病）","中世ヨーロッパの展開"],
+  ["中世西ヨーロッパで主君と家臣の契約関係を基礎とする社会制度は何か?","封建制","中世ヨーロッパの展開"],
+  ["1492年、スペイン王の支援を受けてサンサルバドル島に到達した人物は誰か?","コロンブス","大航海時代とルネサンス"],
+  ["スペインの支援で世界周航を開始し、航海中に戦死した人物は誰か?","マゼラン","大航海時代とルネサンス"],
+  ["ルネサンス期のフィレンツェで芸術・学問の保護に大きな役割を果たした一族は何か?","メディチ家","大航海時代とルネサンス"],
+  ["「モナ=リザ」「最後の晩餐」で知られるルネサンス期の芸術家は誰か?","レオナルド=ダ=ヴィンチ","大航海時代とルネサンス"],
+  ["1517年に95か条の論題を発表して宗教改革の発端をつくった人物は誰か?","ルター","大航海時代とルネサンス"],
+  ["1776年に独立宣言を出した国はどこか?","アメリカ合衆国","アメリカ独立とフランス革命"],
+  ["アメリカ独立戦争で植民地側の総司令官を務め、初代大統領となった人物は誰か?","ワシントン","アメリカ独立とフランス革命"],
+  ["1789年7月14日、フランス革命の象徴として襲撃された施設は何か?","バスティーユ牢獄","アメリカ独立とフランス革命"],
+  ["1789年のフランス革命期に採択され、基本的人権をうたった宣言は何か?","人間と市民の権利の宣言","アメリカ独立とフランス革命"],
+  ["フランス革命後に皇帝となりヨーロッパ各地へ影響を与えた人物は誰か?","ナポレオン","アメリカ独立とフランス革命"],
+  ["1914年、第一次世界大戦の直接のきっかけとなった暗殺事件は何か?","サラエボ事件","帝国主義と二つの世界大戦"],
+  ["第一次世界大戦後の講和体制の中心となった1919年の条約は何か?","ヴェルサイユ条約","帝国主義と二つの世界大戦"],
+  ["1929年にアメリカから始まり世界に拡大した経済危機は何か?","世界恐慌","帝国主義と二つの世界大戦"],
+  ["ドイツでナチス政権を率いた指導者は誰か?","ヒトラー","帝国主義と二つの世界大戦"],
+  ["第二次世界大戦後に発足した国際平和維持機構は何か?","国際連合","帝国主義と二つの世界大戦"],
+  ["「社会契約論」を著し人民主権を唱えた思想家は誰か?","ルソー","文化史・科学史"],
+  ["三権分立を説いた「法の精神」の著者は誰か?","モンテスキュー","文化史・科学史"],
+  ["万有引力の法則を体系化した科学者は誰か?","ニュートン","文化史・科学史"],
+  ["可動活字による印刷術を普及させた人物は誰か?","グーテンベルク","文化史・科学史"],
+  ["19世紀後半のフランスでモネらが発展させた美術運動は何か?","印象派","文化史・科学史"]
 ];
-
-// すべての答えのリスト（ダミーの選択肢を作るため）
-const allAnswers = rawData.map(d => d[1]);
 
 // 問題の自動カテゴリ分けロジック
 function analyzeQuestion(q, a) {
@@ -1111,13 +1146,38 @@ function analyzeQuestion(q, a) {
   return { type, region, era, difficulty };
 }
 
+// 問題のテーマジャンル判定ロジック
+function analyzeTheme(q) {
+  if (q.match(/封建|十字軍|カノッサ|ジャンヌ|百年戦争|黒死病|ペスト|教皇|騎士/)) {
+    return "中世ヨーロッパの展開";
+  }
+  if (q.match(/大航海|コロンブス|マゼラン|ヴァスコ|ディアス|ルネサンス|メディチ|ダ=ヴィンチ|宗教改革|ルター|価格革命/)) {
+    return "大航海時代とルネサンス";
+  }
+  if (q.match(/アメリカ独立|独立宣言|ワシントン|フランス革命|バスティーユ|人権宣言|ナポレオン|市民革命/)) {
+    return "アメリカ独立とフランス革命";
+  }
+  if (q.match(/帝国主義|植民地|第一次世界大戦|第二次世界大戦|サラエボ|ヴェルサイユ|ヒトラー|ビスマルク|国際連盟|大恐慌|ファシズム/)) {
+    return "帝国主義と二つの世界大戦";
+  }
+  if (q.match(/社会契約論|ルソー|モンテスキュー|ロック|ホッブズ|啓蒙|活版印刷|万有引力|ニュートン|印象派|科学|思想/)) {
+    return "文化史・科学史";
+  }
+  return "その他";
+}
+
 // データベースの構築
 let questionDB = rawData.map(item => {
   const q = item[0];
   const a = item[1];
+  const explicitTheme = item[2];
   const tags = analyzeQuestion(q, a);
-  return { question: q, answer: a, ...tags };
+  const theme = explicitTheme || analyzeTheme(q);
+  return { question: q, answer: a, theme, ...tags };
 });
+
+// すべての答えのリスト（ダミーの選択肢を作るため）
+const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 
 let currentQuestions = [];
 let currentIndex = 0;
@@ -1125,6 +1185,7 @@ let score = 0;
 
 function startQuiz() {
   const filterType = document.getElementById("filter-type").value;
+  const filterTheme = document.getElementById("filter-theme").value;
   const filterRegion = document.getElementById("filter-region").value;
   const filterEra = document.getElementById("filter-era").value;
   const filterDifficulty = document.getElementById("filter-difficulty").value;
@@ -1132,6 +1193,7 @@ function startQuiz() {
   // フィルタリング処理
   currentQuestions = questionDB.filter(q => {
     return (filterType === "すべて" || q.type === filterType) &&
+           (filterTheme === "すべて" || q.theme === filterTheme) &&
            (filterRegion === "すべて" || q.region === filterRegion) &&
            (filterEra === "すべて" || q.era === filterEra) &&
            (filterDifficulty === "すべて" || q.difficulty === filterDifficulty);
@@ -1155,18 +1217,41 @@ function startQuiz() {
 function showQuestion() {
   const qData = currentQuestions[currentIndex];
   document.getElementById("question-meta").innerText = 
-    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.region}] [${qData.era}] [${qData.difficulty}]`;
+    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.difficulty}]`;
   document.getElementById("question-text").innerText = qData.question;
   document.getElementById("feedback").innerText = "";
   document.getElementById("next-btn").classList.add("hidden");
 
   // 選択肢の生成 (正解1つ + 不正解3つ)
-  let choices = new Set([qData.answer]);
-  while(choices.size < 4) {
-    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
-    choices.add(randomAns);
+  const wrongAnswers = [];
+  const used = new Set([qData.answer]);
+  const candidatePools = [
+    questionDB.filter(q => q.theme === qData.theme && q.answer !== qData.answer).map(q => q.answer),
+    questionDB.filter(q => q.region === qData.region && q.era === qData.era && q.answer !== qData.answer).map(q => q.answer),
+    questionDB.filter(q => q.region === qData.region && q.answer !== qData.answer).map(q => q.answer),
+    allAnswers.filter(a => a !== qData.answer)
+  ];
+
+  for (const pool of candidatePools) {
+    const shuffledPool = [...new Set(pool)].sort(() => Math.random() - 0.5);
+    for (const ans of shuffledPool) {
+      if (wrongAnswers.length >= 3) break;
+      if (!used.has(ans)) {
+        wrongAnswers.push(ans);
+        used.add(ans);
+      }
+    }
+    if (wrongAnswers.length >= 3) break;
   }
-  const choicesArray = Array.from(choices).sort(() => Math.random() - 0.5); // シャッフル
+
+  while (wrongAnswers.length < 3) {
+    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+    if (!used.has(randomAns)) {
+      wrongAnswers.push(randomAns);
+      used.add(randomAns);
+    }
+  }
+  const choicesArray = [qData.answer, ...wrongAnswers].sort(() => Math.random() - 0.5); // シャッフル
 
   const container = document.getElementById("choices-container");
   container.innerHTML = "";
