@@ -26,6 +26,9 @@
   .stats-total { font-weight: bold; color: #e67e22; margin-bottom: 8px; }
   .stats-list { margin: 0; padding-left: 18px; font-size: 0.9em; color: #555; }
   .stats-list li { margin-bottom: 4px; }
+  .checkpoint-summary { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 12px; line-height: 1.6; }
+  .checkpoint-mistakes { margin: 0; padding-left: 18px; font-size: 0.9em; color: #555; }
+  .checkpoint-mistakes li { margin-bottom: 6px; }
   .celebrate { position: fixed; font-size: 18px; pointer-events: none; animation: pop 800ms ease-out forwards; z-index: 9999; }
   @keyframes pop {
     0% { transform: translateY(0) scale(0.8); opacity: 1; }
@@ -123,6 +126,15 @@
 <div class="container hidden" id="result-screen">
   <h1>結果発表 🎉</h1>
   <div class="score-display" id="final-score"></div>
+  <button onclick="returnToTitle()">タイトルに戻る</button>
+</div>
+
+<div class="container hidden" id="checkpoint-screen">
+  <h1>📌 10問ごとの集計</h1>
+  <div class="checkpoint-summary" id="checkpoint-summary"></div>
+  <div style="font-size:0.95em; font-weight:bold; margin-bottom:6px;">間違えた問題</div>
+  <ul class="checkpoint-mistakes" id="checkpoint-mistakes-list"></ul>
+  <button onclick="continueFromCheckpoint()">続ける</button>
   <button onclick="returnToTitle()">タイトルに戻る</button>
 </div>
 
@@ -1208,12 +1220,16 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
+let answeredCount = 0;
 let mistakeCounts = loadMistakeCounts();
 let mistakeFocusMode = false;
 const STATS_KEY = "worldHistoryStatsV1";
 const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 let appStats = loadStats();
 let sessionRecorded = false;
+let segmentStartAnswered = 0;
+let segmentStartScore = 0;
+let segmentMistakes = [];
 
 function getTodayDateKey() {
   return new Date().toLocaleDateString("en-CA");
@@ -1331,7 +1347,11 @@ function startQuiz() {
   document.getElementById("quiz-screen").classList.remove("hidden");
   currentIndex = 0;
   score = 0;
+  answeredCount = 0;
   sessionRecorded = false;
+  segmentStartAnswered = 0;
+  segmentStartScore = 0;
+  segmentMistakes = [];
   showQuestion();
 }
 
@@ -1404,6 +1424,11 @@ function checkAnswer(btn, selected, correct) {
     document.getElementById("feedback").innerText = `❌ 不正解... (正解は: ${correct})`;
     document.getElementById("feedback").style.color = "#e74c3c";
     const wrongQuestion = currentQuestions[currentIndex].question;
+    segmentMistakes.push({
+      question: wrongQuestion,
+      selected,
+      correct
+    });
     mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
     saveMistakeCounts();
     document.getElementById("question-text").style.color =
@@ -1424,7 +1449,60 @@ function checkAnswer(btn, selected, correct) {
       if(b.innerText === correct) b.classList.add("correct");
     });
   }
+  answeredCount++;
   document.getElementById("next-btn").classList.remove("hidden");
+}
+
+function summarizeCurrentSegment() {
+  const solvedCount = answeredCount - segmentStartAnswered;
+  const correctCount = score - segmentStartScore;
+  const wrongCount = solvedCount - correctCount;
+  return { solvedCount, correctCount, wrongCount };
+}
+
+function finalizeCurrentSegmentStats() {
+  const { correctCount } = summarizeCurrentSegment();
+  if (correctCount > 0) {
+    addDefeatedStats(correctCount);
+    renderHomeStats();
+  }
+  segmentStartAnswered = answeredCount;
+  segmentStartScore = score;
+  segmentMistakes = [];
+}
+
+function showCheckpointScreen() {
+  const { solvedCount, correctCount, wrongCount } = summarizeCurrentSegment();
+  const summary = document.getElementById("checkpoint-summary");
+  summary.innerHTML = `
+    解いた問題数: ${solvedCount}問<br>
+    正解: ${correctCount}問<br>
+    不正解: ${wrongCount}問
+  `;
+
+  const mistakeList = document.getElementById("checkpoint-mistakes-list");
+  mistakeList.innerHTML = "";
+  if (segmentMistakes.length === 0) {
+    const li = document.createElement("li");
+    li.innerText = "この10問は全問正解でした！";
+    mistakeList.appendChild(li);
+  } else {
+    segmentMistakes.forEach((m, idx) => {
+      const li = document.createElement("li");
+      li.innerText = `${idx + 1}. ${m.question} / あなたの回答: ${m.selected} / 正解: ${m.correct}`;
+      mistakeList.appendChild(li);
+    });
+  }
+
+  finalizeCurrentSegmentStats();
+  document.getElementById("quiz-screen").classList.add("hidden");
+  document.getElementById("checkpoint-screen").classList.remove("hidden");
+}
+
+function continueFromCheckpoint() {
+  document.getElementById("checkpoint-screen").classList.add("hidden");
+  document.getElementById("quiz-screen").classList.remove("hidden");
+  showQuestion();
 }
 
 function spawnCelebrateEffect(targetBtn, symbols) {
@@ -1443,14 +1521,19 @@ function spawnCelebrateEffect(targetBtn, symbols) {
 function nextQuestion() {
   currentIndex++;
   if (currentIndex < currentQuestions.length) {
-    showQuestion();
+    if (answeredCount % 10 === 0) {
+      showCheckpointScreen();
+    } else {
+      showQuestion();
+    }
   } else {
     if (!sessionRecorded) {
-      addDefeatedStats(score);
+      finalizeCurrentSegmentStats();
       sessionRecorded = true;
     }
     renderHomeStats();
     document.getElementById("quiz-screen").classList.add("hidden");
+    document.getElementById("checkpoint-screen").classList.add("hidden");
     document.getElementById("result-screen").classList.remove("hidden");
     document.getElementById("final-score").innerText = 
       `${currentQuestions.length}問中、${score}問正解しました！`;
@@ -1461,7 +1544,12 @@ function returnToTitle() {
   currentQuestions = [];
   currentIndex = 0;
   score = 0;
+  answeredCount = 0;
+  segmentStartAnswered = 0;
+  segmentStartScore = 0;
+  segmentMistakes = [];
   document.getElementById("result-screen").classList.add("hidden");
+  document.getElementById("checkpoint-screen").classList.add("hidden");
   document.getElementById("quiz-screen").classList.add("hidden");
   document.getElementById("setup-screen").classList.remove("hidden");
   renderHomeStats();
