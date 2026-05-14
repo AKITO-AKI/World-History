@@ -1484,7 +1484,7 @@ function showCheckpointScreen() {
   mistakeList.innerHTML = "";
   if (segmentMistakes.length === 0) {
     const li = document.createElement("li");
-    li.innerText = "この10問は全問正解でした！";
+    li.innerText = "この区間は全問正解でした！";
     mistakeList.appendChild(li);
   } else {
     segmentMistakes.forEach((m, idx) => {
