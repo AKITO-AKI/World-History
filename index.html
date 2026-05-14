@@ -21,6 +21,16 @@
   .hidden { display: none; }
   .meta-info { font-size: 0.8em; color: #7f8c8d; margin-bottom: 15px; text-align: center; }
   .score-display { text-align: center; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; color: #e67e22; }
+  .stats-panel { margin-top: 15px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafafa; }
+  .stats-title { margin: 0 0 8px; font-size: 1em; color: #2c3e50; }
+  .stats-total { font-weight: bold; color: #e67e22; margin-bottom: 8px; }
+  .stats-list { margin: 0; padding-left: 18px; font-size: 0.9em; color: #555; }
+  .stats-list li { margin-bottom: 4px; }
+  .celebrate { position: fixed; font-size: 18px; pointer-events: none; animation: pop 800ms ease-out forwards; z-index: 9999; }
+  @keyframes pop {
+    0% { transform: translateY(0) scale(0.8); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.3); opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -91,6 +101,15 @@
   </div>
 
   <button onclick="startQuiz()">クイズをはじめる</button>
+
+  <div class="stats-panel">
+    <h2 class="stats-title">📊 撃破レポート</h2>
+    <div class="stats-total" id="stats-total">総撃破問題数: 0</div>
+    <div style="font-size:0.9em; font-weight:bold; margin-bottom:4px;">🗓 一日ごとの撃破数</div>
+    <ul class="stats-list" id="daily-report-list"></ul>
+    <div style="font-size:0.9em; font-weight:bold; margin:8px 0 4px;">📈 撃破数推移（累計）</div>
+    <ul class="stats-list" id="trend-report-list"></ul>
+  </div>
 </div>
 
 <div class="container hidden" id="quiz-screen">
@@ -1191,6 +1210,68 @@ let currentIndex = 0;
 let score = 0;
 let mistakeCounts = {};
 let mistakeFocusMode = false;
+const STATS_KEY = "worldHistoryStatsV1";
+let appStats = loadStats();
+let sessionRecorded = false;
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadStats() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "{}");
+    return {
+      totalDefeated: Number(parsed.totalDefeated || 0),
+      dailyDefeated: parsed.dailyDefeated && typeof parsed.dailyDefeated === "object" ? parsed.dailyDefeated : {}
+    };
+  } catch (_) {
+    return { totalDefeated: 0, dailyDefeated: {} };
+  }
+}
+
+function saveStats() {
+  localStorage.setItem(STATS_KEY, JSON.stringify(appStats));
+}
+
+function addDefeatedStats(count) {
+  if (!count || count <= 0) return;
+  const day = todayKey();
+  appStats.totalDefeated += count;
+  appStats.dailyDefeated[day] = (appStats.dailyDefeated[day] || 0) + count;
+  saveStats();
+}
+
+function renderHomeStats() {
+  document.getElementById("stats-total").innerText = `総撃破問題数: ${appStats.totalDefeated}`;
+  const days = Object.keys(appStats.dailyDefeated).sort().reverse();
+  const dailyList = document.getElementById("daily-report-list");
+  const trendList = document.getElementById("trend-report-list");
+  dailyList.innerHTML = "";
+  trendList.innerHTML = "";
+
+  if (days.length === 0) {
+    dailyList.innerHTML = "<li>まだ記録がありません</li>";
+    trendList.innerHTML = "<li>クイズを解くと推移が表示されます</li>";
+    return;
+  }
+
+  const latestDays = days.slice(0, 7).reverse();
+  for (const d of latestDays) {
+    const li = document.createElement("li");
+    li.innerText = `${d}: ${appStats.dailyDefeated[d]}問`;
+    dailyList.appendChild(li);
+  }
+
+  let cumulative = 0;
+  const ascDays = [...days].reverse();
+  for (const d of ascDays) {
+    cumulative += appStats.dailyDefeated[d];
+    const li = document.createElement("li");
+    li.innerText = `${d}: ${cumulative}問`;
+    trendList.appendChild(li);
+  }
+}
 
 function getQuestionColorByMistake(count) {
   // 0回:標準色 / 1回:警告色 / 2回:強警告色 / 3回以上:要復習色
@@ -1236,6 +1317,7 @@ function startQuiz() {
   document.getElementById("quiz-screen").classList.remove("hidden");
   currentIndex = 0;
   score = 0;
+  sessionRecorded = false;
   showQuestion();
 }
 
@@ -1301,6 +1383,7 @@ function checkAnswer(btn, selected, correct) {
     btn.classList.add("correct");
     document.getElementById("feedback").innerText = "⭕ 正解！";
     document.getElementById("feedback").style.color = "#2ecc71";
+    spawnCelebrateEffect(btn, ["✨", "🎉", "🏆"]);
     score++;
   } else {
     btn.classList.add("wrong");
@@ -1327,11 +1410,29 @@ function checkAnswer(btn, selected, correct) {
   document.getElementById("next-btn").classList.remove("hidden");
 }
 
+function spawnCelebrateEffect(targetBtn, symbols) {
+  const rect = targetBtn.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const e = document.createElement("div");
+    e.className = "celebrate";
+    e.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+    e.style.left = `${rect.left + rect.width / 2 + (Math.random() * 80 - 40)}px`;
+    e.style.top = `${rect.top + rect.height / 2 + (Math.random() * 20 - 10)}px`;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 850);
+  }
+}
+
 function nextQuestion() {
   currentIndex++;
   if (currentIndex < currentQuestions.length) {
     showQuestion();
   } else {
+    if (!sessionRecorded) {
+      addDefeatedStats(score);
+      sessionRecorded = true;
+    }
+    renderHomeStats();
     document.getElementById("quiz-screen").classList.add("hidden");
     document.getElementById("result-screen").classList.remove("hidden");
     document.getElementById("final-score").innerText = 
@@ -1347,7 +1448,9 @@ function returnToTitle() {
   document.getElementById("result-screen").classList.add("hidden");
   document.getElementById("quiz-screen").classList.add("hidden");
   document.getElementById("setup-screen").classList.remove("hidden");
+  renderHomeStats();
 }
+renderHomeStats();
 </script>
 </body>
 </html>
