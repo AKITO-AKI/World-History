@@ -1208,13 +1208,14 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
-let mistakeCounts = {};
+let mistakeCounts = loadMistakeCounts();
 let mistakeFocusMode = false;
 const STATS_KEY = "worldHistoryStatsV1";
+const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 let appStats = loadStats();
 let sessionRecorded = false;
 
-function todayKey() {
+function getTodayDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -1234,9 +1235,22 @@ function saveStats() {
   localStorage.setItem(STATS_KEY, JSON.stringify(appStats));
 }
 
+function loadMistakeCounts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MISTAKE_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveMistakeCounts() {
+  localStorage.setItem(MISTAKE_KEY, JSON.stringify(mistakeCounts));
+}
+
 function addDefeatedStats(count) {
   if (!count || count <= 0) return;
-  const day = todayKey();
+  const day = getTodayDateKey();
   appStats.totalDefeated += count;
   appStats.dailyDefeated[day] = (appStats.dailyDefeated[day] || 0) + count;
   saveStats();
@@ -1274,7 +1288,7 @@ function renderHomeStats() {
 }
 
 function getQuestionColorByMistake(count) {
-  // 0回:標準色 / 1回:警告色 / 2回:強警告色 / 3回以上:要復習色
+  // 0回:標準 / 1回:警告 / 2回:強警告 / 3回:要復習 / 4回以上:最重要復習
   const colors = ["#2c3e50", "#d35400", "#c0392b", "#8e44ad", "#2d3436"];
   return colors[Math.min(count, colors.length - 1)];
 }
@@ -1391,6 +1405,7 @@ function checkAnswer(btn, selected, correct) {
     document.getElementById("feedback").style.color = "#e74c3c";
     const wrongQuestion = currentQuestions[currentIndex].question;
     mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
+    saveMistakeCounts();
     document.getElementById("question-text").style.color =
       getQuestionColorByMistake(mistakeCounts[wrongQuestion]);
 
@@ -1399,8 +1414,10 @@ function checkAnswer(btn, selected, correct) {
       // 1〜3問先に再配置して、近いタイミングで復習できるようにする
       const minInsertPos = currentIndex + 1;
       const maxInsertPos = Math.min(currentIndex + 3, currentQuestions.length);
-      const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPos - minInsertPos + 1));
-      currentQuestions.splice(insertPos, 0, reviewQuestion);
+      if (minInsertPos <= maxInsertPos) {
+        const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPos - minInsertPos + 1));
+        currentQuestions.splice(insertPos, 0, reviewQuestion);
+      }
     }
     // 正解のボタンを緑にする
     buttons.forEach(b => {
@@ -1444,7 +1461,6 @@ function returnToTitle() {
   currentQuestions = [];
   currentIndex = 0;
   score = 0;
-  mistakeCounts = {};
   document.getElementById("result-screen").classList.add("hidden");
   document.getElementById("quiz-screen").classList.add("hidden");
   document.getElementById("setup-screen").classList.remove("hidden");
