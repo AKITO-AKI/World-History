@@ -42,6 +42,15 @@
   <h1>🌍 世界史 四択学習アプリ</h1>
   <p style="text-align:center; font-size:0.9em; color:#666;">フィルタを選んでスタートしてください</p>
   <p style="text-align:center; font-size:0.9em; margin-top:8px;">📄 追加資料：<a href="人物.pdf" target="_blank" rel="noopener noreferrer">人物</a> ／ <a href="年表.pdf" target="_blank" rel="noopener noreferrer">年表</a></p>
+
+  <div class="filter-group">
+    <label>🎯 学習モード</label>
+    <select id="study-mode">
+      <option value="通常">通常モード</option>
+      <option value="人物専用">人物専用モード</option>
+      <option value="年表専用">年表専用モード</option>
+    </select>
+  </div>
   
   <div class="filter-group">
     <label>📌 ジャンル (人物・王朝など)</label>
@@ -1217,6 +1226,113 @@ let questionDB = rawData.map(item => {
 
 // すべての答えのリスト（ダミーの選択肢を作るため）
 const allAnswers = [...new Set(questionDB.map(d => d.answer))];
+const TIMELINE_PATTERN = /紀元前|紀元後|\d+年|\d+世紀|時代|年代|ごろ|頃|前半|後半/;
+const ANSWER_FORM_HINTS = [
+  "王朝", "帝国", "王国", "公会議", "大聖堂", "条約", "同盟", "戦争", "の乱", "法典", "勅令", "制度", "文化", "学派", "宗教", "文字", "暦", "都", "王", "帝", "世", "年"
+];
+
+const answerExplanations = buildAnswerExplanations();
+
+function isTimelineQuestion(qData) {
+  return TIMELINE_PATTERN.test(qData.question) || TIMELINE_PATTERN.test(qData.answer);
+}
+
+function matchStudyMode(qData, studyMode) {
+  if (studyMode === "人物専用") return qData.type === "人物";
+  if (studyMode === "年表専用") return isTimelineQuestion(qData);
+  return true;
+}
+
+function buildAnswerExplanations() {
+  const map = {};
+  for (const qData of questionDB) {
+    if (map[qData.answer]) continue;
+    const baseQuestion = qData.question.replace(/[?？]$/, "");
+    map[qData.answer] = `${baseQuestion} への答え。`;
+  }
+  return map;
+}
+
+function getTermExplanation(term) {
+  return answerExplanations[term] || `${term} は世界史で問われる重要語句。`;
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function detectAnswerForm(answer) {
+  for (const hint of ANSWER_FORM_HINTS) {
+    if (answer.includes(hint)) return hint;
+  }
+  return "";
+}
+
+function tokenize(text) {
+  return new Set((text.match(/[一-龠々ぁ-んァ-ヶーA-Za-z0-9]+/g) || []).filter(Boolean));
+}
+
+function scoreCandidateSimilarity(targetQ, candidateQ) {
+  let score = 0;
+  if (targetQ.type === candidateQ.type) score += 5;
+  if (targetQ.theme === candidateQ.theme) score += 4;
+  if (targetQ.region === candidateQ.region) score += 3;
+  if (targetQ.era === candidateQ.era) score += 2;
+  if (targetQ.difficulty === candidateQ.difficulty) score += 1;
+
+  const targetForm = detectAnswerForm(targetQ.answer);
+  const candidateForm = detectAnswerForm(candidateQ.answer);
+  if (targetForm && targetForm === candidateForm) score += 6;
+
+  if (isTimelineQuestion(targetQ) && isTimelineQuestion(candidateQ)) score += 4;
+
+  const targetTokens = tokenize(targetQ.answer);
+  const candidateTokens = tokenize(candidateQ.answer);
+  let overlap = 0;
+  targetTokens.forEach(t => { if (candidateTokens.has(t)) overlap++; });
+  score += overlap * 3;
+
+  const lengthDiff = Math.abs(targetQ.answer.length - candidateQ.answer.length);
+  if (lengthDiff <= 2) score += 2;
+  else if (lengthDiff <= 4) score += 1;
+
+  return score;
+}
+
+function pickWrongAnswers(qData) {
+  const uniqueCandidateMap = new Map();
+  for (const candidate of questionDB) {
+    if (candidate.answer === qData.answer) continue;
+    if (!uniqueCandidateMap.has(candidate.answer)) {
+      uniqueCandidateMap.set(candidate.answer, candidate);
+    }
+  }
+
+  const ranked = [...uniqueCandidateMap.values()]
+    .map(candidate => ({
+      answer: candidate.answer,
+      score: scoreCandidateSimilarity(qData, candidate)
+    }))
+    .sort((a, b) => b.score - a.score || Math.random() - 0.5);
+
+  const wrongAnswers = ranked.slice(0, 3).map(item => item.answer);
+  const used = new Set([qData.answer, ...wrongAnswers]);
+
+  for (const candidate of allAnswers) {
+    if (wrongAnswers.length >= 3) break;
+    if (!used.has(candidate)) {
+      wrongAnswers.push(candidate);
+      used.add(candidate);
+    }
+  }
+
+  return wrongAnswers;
+}
 
 let currentQuestions = [];
 let currentIndex = 0;
@@ -1320,6 +1436,7 @@ function shuffleArray(array) {
 }
 
 function startQuiz() {
+  const studyMode = document.getElementById("study-mode").value;
   const filterType = document.getElementById("filter-type").value;
   const filterTheme = document.getElementById("filter-theme").value;
   const filterRegion = document.getElementById("filter-region").value;
@@ -1329,7 +1446,8 @@ function startQuiz() {
 
   // フィルタリング処理
   currentQuestions = questionDB.filter(q => {
-    return (filterType === "すべて" || q.type === filterType) &&
+    return matchStudyMode(q, studyMode) &&
+           (filterType === "すべて" || q.type === filterType) &&
            (filterTheme === "すべて" || q.theme === filterTheme) &&
            (filterRegion === "すべて" || q.region === filterRegion) &&
            (filterEra === "すべて" || q.era === filterEra) &&
@@ -1367,34 +1485,7 @@ function showQuestion() {
   document.getElementById("next-btn").classList.add("hidden");
 
   // 選択肢の生成 (正解1つ + 不正解3つ)
-  const wrongAnswers = [];
-  const used = new Set([qData.answer]);
-  const candidatePools = [
-    questionDB.filter(q => q.theme === qData.theme && q.answer !== qData.answer).map(q => q.answer),
-    questionDB.filter(q => q.region === qData.region && q.era === qData.era && q.answer !== qData.answer).map(q => q.answer),
-    questionDB.filter(q => q.region === qData.region && q.answer !== qData.answer).map(q => q.answer),
-    allAnswers.filter(a => a !== qData.answer)
-  ];
-
-  for (const pool of candidatePools) {
-    const shuffledPool = shuffleArray([...new Set(pool)]);
-    for (const ans of shuffledPool) {
-      if (wrongAnswers.length >= 3) break;
-      if (!used.has(ans)) {
-        wrongAnswers.push(ans);
-        used.add(ans);
-      }
-    }
-    if (wrongAnswers.length >= 3) break;
-  }
-
-  while (wrongAnswers.length < 3) {
-    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
-    if (!used.has(randomAns)) {
-      wrongAnswers.push(randomAns);
-      used.add(randomAns);
-    }
-  }
+  const wrongAnswers = pickWrongAnswers(qData);
   const choicesArray = shuffleArray([qData.answer, ...wrongAnswers]);
 
   const container = document.getElementById("choices-container");
@@ -1413,22 +1504,27 @@ function checkAnswer(btn, selected, correct) {
   // ボタンを非活性化
   const buttons = document.querySelectorAll(".choice-btn");
   buttons.forEach(b => b.disabled = true);
+  const feedbackEl = document.getElementById("feedback");
 
   if (selected === correct) {
     btn.classList.add("correct");
-    document.getElementById("feedback").innerText = "⭕ 正解！";
-    document.getElementById("feedback").style.color = "#2ecc71";
+    feedbackEl.innerText = "⭕ 正解！";
+    feedbackEl.style.color = "#2ecc71";
     spawnCelebrateEffect(btn, ["✨", "🎉", "🏆"]);
     score++;
   } else {
     btn.classList.add("wrong");
-    document.getElementById("feedback").innerText = `❌ 不正解... (正解は: ${correct})`;
-    document.getElementById("feedback").style.color = "#e74c3c";
+    const selectedExplanation = getTermExplanation(selected);
+    const correctExplanation = getTermExplanation(correct);
+    feedbackEl.innerHTML = `❌ 不正解...<br>あなたの回答: <b>${escapeHtml(selected)}</b><br>説明: ${escapeHtml(selectedExplanation)}<br><br>正解: <b>${escapeHtml(correct)}</b><br>説明: ${escapeHtml(correctExplanation)}`;
+    feedbackEl.style.color = "#e74c3c";
     const wrongQuestion = currentQuestions[currentIndex].question;
     segmentMistakes.push({
       question: wrongQuestion,
       selected,
-      correct
+      correct,
+      selectedExplanation,
+      correctExplanation
     });
     mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
     saveMistakeCounts();
@@ -1490,7 +1586,7 @@ function showCheckpointScreen() {
   } else {
     segmentMistakes.forEach((m, idx) => {
       const li = document.createElement("li");
-      li.innerText = `${idx + 1}. ${m.question} / あなたの回答: ${m.selected} / 正解: ${m.correct}`;
+      li.innerHTML = `${idx + 1}. ${escapeHtml(m.question)}<br>あなたの回答: <b>${escapeHtml(m.selected)}</b><br>説明: ${escapeHtml(m.selectedExplanation || getTermExplanation(m.selected))}<br>正解: <b>${escapeHtml(m.correct)}</b><br>説明: ${escapeHtml(m.correctExplanation || getTermExplanation(m.correct))}`;
       mistakeList.appendChild(li);
     });
   }
