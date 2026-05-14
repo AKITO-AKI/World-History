@@ -21,6 +21,16 @@
   .hidden { display: none; }
   .meta-info { font-size: 0.8em; color: #7f8c8d; margin-bottom: 15px; text-align: center; }
   .score-display { text-align: center; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; color: #e67e22; }
+  .stats-panel { margin-top: 15px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafafa; }
+  .stats-title { margin: 0 0 8px; font-size: 1em; color: #2c3e50; }
+  .stats-total { font-weight: bold; color: #e67e22; margin-bottom: 8px; }
+  .stats-list { margin: 0; padding-left: 18px; font-size: 0.9em; color: #555; }
+  .stats-list li { margin-bottom: 4px; }
+  .celebrate { position: fixed; font-size: 18px; pointer-events: none; animation: pop 800ms ease-out forwards; z-index: 9999; }
+  @keyframes pop {
+    0% { transform: translateY(0) scale(0.8); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.3); opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -37,6 +47,19 @@
       <option value="王朝・国家">王朝・国家</option>
       <option value="文化・宗教">文化・宗教</option>
       <option value="その他">その他・出来事</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>📚 学習テーマ</label>
+    <select id="filter-theme">
+      <option value="すべて">すべて</option>
+      <option value="中世ヨーロッパの展開">中世ヨーロッパの展開</option>
+      <option value="大航海時代とルネサンス">大航海時代とルネサンス</option>
+      <option value="アメリカ独立とフランス革命">アメリカ独立とフランス革命</option>
+      <option value="帝国主義と二つの世界大戦">帝国主義と二つの世界大戦</option>
+      <option value="文化史・科学史">文化史・科学史</option>
+      <option value="その他">その他</option>
     </select>
   </div>
 
@@ -70,7 +93,23 @@
     </select>
   </div>
 
+  <div class="filter-group">
+    <label style="font-weight: normal;">
+      <input type="checkbox" id="focus-mistakes-mode">
+      ❗ 間違えた問題を重点的に解くモード
+    </label>
+  </div>
+
   <button onclick="startQuiz()">クイズをはじめる</button>
+
+  <div class="stats-panel">
+    <h2 class="stats-title">📊 撃破レポート</h2>
+    <div class="stats-total" id="stats-total">総撃破問題数: 0</div>
+    <div style="font-size:0.9em; font-weight:bold; margin-bottom:4px;">🗓 一日ごとの撃破数</div>
+    <ul class="stats-list" id="daily-report-list"></ul>
+    <div style="font-size:0.9em; font-weight:bold; margin:8px 0 4px;">📈 撃破数推移（累計）</div>
+    <ul class="stats-list" id="trend-report-list"></ul>
+  </div>
 </div>
 
 <div class="container hidden" id="quiz-screen">
@@ -84,7 +123,7 @@
 <div class="container hidden" id="result-screen">
   <h1>結果発表 🎉</h1>
   <div class="score-display" id="final-score"></div>
-  <button onclick="location.reload()">タイトルに戻る</button>
+  <button onclick="returnToTitle()">タイトルに戻る</button>
 </div>
 
 <script>
@@ -1079,14 +1118,36 @@ const rawData = [
   ["1992年に結ばれた欧州連合の創設を定めた条約をなんというか?","マーストリヒト条約"],
   ["ソ連のゴルバチョフ書記長が打ち出した政治や社会体制の全面的見直しする改革運動をなんというか?","ペレストロイカ"],
   ["1980年にポーランドでワレサを指導者として結成された自主管理労組を何というか?","連帯"],
-  ["1981年に中国で指導者の立場に立ち社会主事市場経済の推進を行ったのは誰か?","鄧小平"],
+  ["1981年に中国で指導者の立場に立ち社会主義市場経済の推進を行ったのは誰か?","鄧小平"],
   ["1986年からベトナムではじめられた緩やかな市場経済をおこなう経済政策をなんというか?","ドイモイ"],
   ["1989年に開放された東西ドイツの往来を遮断していたものは何か?","ベルリンの壁"],
-  ["1989年に中国で起こった民主化を要求する学生を政府が弾圧した事件を何というか?","天安門事件"]
+  ["1989年に中国で起こった民主化を要求する学生を政府が弾圧した事件を何というか?","天安門事件"],
+  ["11世紀末、聖地エルサレム奪還を目的に提唱された軍事遠征は何か?","十字軍","中世ヨーロッパの展開"],
+  ["1077年、教皇グレゴリウス7世に皇帝ハインリヒ4世が屈服した事件は何か?","カノッサの屈辱","中世ヨーロッパの展開"],
+  ["百年戦争でオルレアン解放を指揮したフランスの少女は誰か?","ジャンヌ・ダルク","中世ヨーロッパの展開"],
+  ["14世紀にヨーロッパで大流行し人口減少を招いた感染症は何か?","ペスト（黒死病）","中世ヨーロッパの展開"],
+  ["中世西ヨーロッパで主君と家臣の契約関係を基礎とする社会制度は何か?","封建制","中世ヨーロッパの展開"],
+  ["1492年、スペイン王の支援を受けてサンサルバドル島に到達した人物は誰か?","コロンブス","大航海時代とルネサンス"],
+  ["スペインの支援で世界周航を開始し、航海中に戦死した人物は誰か?","マゼラン","大航海時代とルネサンス"],
+  ["ルネサンス期のフィレンツェで芸術・学問の保護に大きな役割を果たした一族は何か?","メディチ家","大航海時代とルネサンス"],
+  ["「モナ=リザ」「最後の晩餐」で知られるルネサンス期の芸術家は誰か?","レオナルド=ダ=ヴィンチ","大航海時代とルネサンス"],
+  ["1517年に95か条の論題を発表して宗教改革の発端をつくった人物は誰か?","ルター","大航海時代とルネサンス"],
+  ["1776年に独立宣言を出した国はどこか?","アメリカ合衆国","アメリカ独立とフランス革命"],
+  ["アメリカ独立戦争で植民地側の総司令官を務め、初代大統領となった人物は誰か?","ワシントン","アメリカ独立とフランス革命"],
+  ["1789年7月14日、フランス革命の象徴として襲撃された施設は何か?","バスティーユ牢獄","アメリカ独立とフランス革命"],
+  ["1789年のフランス革命期に採択され、基本的人権をうたった宣言は何か?","人間と市民の権利の宣言","アメリカ独立とフランス革命"],
+  ["フランス革命後に皇帝となりヨーロッパ各地へ影響を与えた人物は誰か?","ナポレオン","アメリカ独立とフランス革命"],
+  ["1914年、第一次世界大戦の直接のきっかけとなった暗殺事件は何か?","サラエボ事件","帝国主義と二つの世界大戦"],
+  ["第一次世界大戦後の講和体制の中心となった1919年の条約は何か?","ヴェルサイユ条約","帝国主義と二つの世界大戦"],
+  ["1929年にアメリカから始まり世界に拡大した経済危機は何か?","世界恐慌","帝国主義と二つの世界大戦"],
+  ["ドイツでナチス政権を率いた指導者は誰か?","ヒトラー","帝国主義と二つの世界大戦"],
+  ["第二次世界大戦後に発足した国際平和維持機構は何か?","国際連合","帝国主義と二つの世界大戦"],
+  ["「社会契約論」を著し人民主権を唱えた思想家は誰か?","ルソー","文化史・科学史"],
+  ["三権分立を説いた「法の精神」の著者は誰か?","モンテスキュー","文化史・科学史"],
+  ["万有引力の法則を体系化した科学者は誰か?","ニュートン","文化史・科学史"],
+  ["可動活字による印刷術を普及させた人物は誰か?","グーテンベルク","文化史・科学史"],
+  ["19世紀後半のフランスでモネらが発展させた美術運動は何か?","印象派","文化史・科学史"]
 ];
-
-// すべての答えのリスト（ダミーの選択肢を作るため）
-const allAnswers = rawData.map(d => d[1]);
 
 // 問題の自動カテゴリ分けロジック
 function analyzeQuestion(q, a) {
@@ -1111,34 +1172,155 @@ function analyzeQuestion(q, a) {
   return { type, region, era, difficulty };
 }
 
+// 問題のテーマジャンル判定ロジック
+function analyzeTheme(q) {
+  if (q.match(/封建|十字軍|カノッサ|ジャンヌ|百年戦争|黒死病|ペスト|教皇|騎士/)) {
+    return "中世ヨーロッパの展開";
+  }
+  if (q.match(/大航海|コロンブス|マゼラン|ヴァスコ|ディアス|ルネサンス|メディチ|ダ=ヴィンチ|宗教改革|ルター|価格革命/)) {
+    return "大航海時代とルネサンス";
+  }
+  if (q.match(/アメリカ独立|独立宣言|ワシントン|フランス革命|バスティーユ|人権宣言|ナポレオン|市民革命/)) {
+    return "アメリカ独立とフランス革命";
+  }
+  if (q.match(/帝国主義|植民地|第一次世界大戦|第二次世界大戦|サラエボ|ヴェルサイユ|ヒトラー|ビスマルク|国際連盟|世界恐慌|ファシズム/)) {
+    return "帝国主義と二つの世界大戦";
+  }
+  if (q.match(/社会契約論|ルソー|モンテスキュー|ロック|ホッブズ|啓蒙|活版印刷|万有引力|ニュートン|印象派|科学|思想/)) {
+    return "文化史・科学史";
+  }
+  return "その他";
+}
+
 // データベースの構築
 let questionDB = rawData.map(item => {
   const q = item[0];
   const a = item[1];
+  const explicitTheme = item[2];
   const tags = analyzeQuestion(q, a);
-  return { question: q, answer: a, ...tags };
+  const theme = explicitTheme || analyzeTheme(q);
+  return { question: q, answer: a, theme, ...tags };
 });
+
+// すべての答えのリスト（ダミーの選択肢を作るため）
+const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
+let mistakeCounts = loadMistakeCounts();
+let mistakeFocusMode = false;
+const STATS_KEY = "worldHistoryStatsV1";
+const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
+let appStats = loadStats();
+let sessionRecorded = false;
+
+function getTodayDateKey() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+function loadStats() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "{}");
+    return {
+      totalDefeated: Number(parsed.totalDefeated || 0),
+      dailyDefeated: parsed.dailyDefeated && typeof parsed.dailyDefeated === "object" ? parsed.dailyDefeated : {}
+    };
+  } catch (_) {
+    return { totalDefeated: 0, dailyDefeated: {} };
+  }
+}
+
+function saveStats() {
+  localStorage.setItem(STATS_KEY, JSON.stringify(appStats));
+}
+
+function loadMistakeCounts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MISTAKE_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveMistakeCounts() {
+  localStorage.setItem(MISTAKE_KEY, JSON.stringify(mistakeCounts));
+}
+
+function addDefeatedStats(count) {
+  if (!count || count <= 0) return;
+  const day = getTodayDateKey();
+  appStats.totalDefeated += count;
+  appStats.dailyDefeated[day] = (appStats.dailyDefeated[day] || 0) + count;
+  saveStats();
+}
+
+function renderHomeStats() {
+  document.getElementById("stats-total").innerText = `総撃破問題数: ${appStats.totalDefeated}`;
+  const days = Object.keys(appStats.dailyDefeated).sort().reverse();
+  const dailyList = document.getElementById("daily-report-list");
+  const trendList = document.getElementById("trend-report-list");
+  dailyList.innerHTML = "";
+  trendList.innerHTML = "";
+
+  if (days.length === 0) {
+    dailyList.innerHTML = "<li>まだ記録がありません</li>";
+    trendList.innerHTML = "<li>クイズを解くと推移が表示されます</li>";
+    return;
+  }
+
+  const recentDaysChronological = days.slice(0, 7).reverse();
+  for (const d of recentDaysChronological) {
+    const li = document.createElement("li");
+    li.innerText = `${d}: ${appStats.dailyDefeated[d]}問`;
+    dailyList.appendChild(li);
+  }
+
+  let cumulative = 0;
+  const ascDays = [...days].reverse();
+  for (const d of ascDays) {
+    cumulative += appStats.dailyDefeated[d];
+    const li = document.createElement("li");
+    li.innerText = `${d}: ${cumulative}問`;
+    trendList.appendChild(li);
+  }
+}
+
+function getQuestionColorByMistake(count) {
+  // 0回:標準 / 1回:警告 / 2回:強警告 / 3回:要復習 / 4回以上:最重要復習
+  const colors = ["#2c3e50", "#d35400", "#c0392b", "#8e44ad", "#2d3436"];
+  return colors[Math.min(count, colors.length - 1)];
+}
+
+function shuffleArray(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 function startQuiz() {
   const filterType = document.getElementById("filter-type").value;
+  const filterTheme = document.getElementById("filter-theme").value;
   const filterRegion = document.getElementById("filter-region").value;
   const filterEra = document.getElementById("filter-era").value;
   const filterDifficulty = document.getElementById("filter-difficulty").value;
+  mistakeFocusMode = document.getElementById("focus-mistakes-mode").checked;
 
   // フィルタリング処理
   currentQuestions = questionDB.filter(q => {
     return (filterType === "すべて" || q.type === filterType) &&
+           (filterTheme === "すべて" || q.theme === filterTheme) &&
            (filterRegion === "すべて" || q.region === filterRegion) &&
            (filterEra === "すべて" || q.era === filterEra) &&
            (filterDifficulty === "すべて" || q.difficulty === filterDifficulty);
   });
 
   // シャッフル
-  currentQuestions.sort(() => Math.random() - 0.5);
+  currentQuestions = shuffleArray(currentQuestions);
 
   if (currentQuestions.length === 0) {
     alert("該当する問題がありません。フィルタ条件を変えてみてください。");
@@ -1149,24 +1331,50 @@ function startQuiz() {
   document.getElementById("quiz-screen").classList.remove("hidden");
   currentIndex = 0;
   score = 0;
+  sessionRecorded = false;
   showQuestion();
 }
 
 function showQuestion() {
   const qData = currentQuestions[currentIndex];
+  const mistakes = mistakeCounts[qData.question] || 0;
   document.getElementById("question-meta").innerText = 
-    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.region}] [${qData.era}] [${qData.difficulty}]`;
+    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.difficulty}] [ミス:${mistakes}]`;
   document.getElementById("question-text").innerText = qData.question;
+  document.getElementById("question-text").style.color = getQuestionColorByMistake(mistakes);
   document.getElementById("feedback").innerText = "";
   document.getElementById("next-btn").classList.add("hidden");
 
   // 選択肢の生成 (正解1つ + 不正解3つ)
-  let choices = new Set([qData.answer]);
-  while(choices.size < 4) {
-    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
-    choices.add(randomAns);
+  const wrongAnswers = [];
+  const used = new Set([qData.answer]);
+  const candidatePools = [
+    questionDB.filter(q => q.theme === qData.theme && q.answer !== qData.answer).map(q => q.answer),
+    questionDB.filter(q => q.region === qData.region && q.era === qData.era && q.answer !== qData.answer).map(q => q.answer),
+    questionDB.filter(q => q.region === qData.region && q.answer !== qData.answer).map(q => q.answer),
+    allAnswers.filter(a => a !== qData.answer)
+  ];
+
+  for (const pool of candidatePools) {
+    const shuffledPool = shuffleArray([...new Set(pool)]);
+    for (const ans of shuffledPool) {
+      if (wrongAnswers.length >= 3) break;
+      if (!used.has(ans)) {
+        wrongAnswers.push(ans);
+        used.add(ans);
+      }
+    }
+    if (wrongAnswers.length >= 3) break;
   }
-  const choicesArray = Array.from(choices).sort(() => Math.random() - 0.5); // シャッフル
+
+  while (wrongAnswers.length < 3) {
+    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+    if (!used.has(randomAns)) {
+      wrongAnswers.push(randomAns);
+      used.add(randomAns);
+    }
+  }
+  const choicesArray = shuffleArray([qData.answer, ...wrongAnswers]);
 
   const container = document.getElementById("choices-container");
   container.innerHTML = "";
@@ -1189,11 +1397,28 @@ function checkAnswer(btn, selected, correct) {
     btn.classList.add("correct");
     document.getElementById("feedback").innerText = "⭕ 正解！";
     document.getElementById("feedback").style.color = "#2ecc71";
+    spawnCelebrateEffect(btn, ["✨", "🎉", "🏆"]);
     score++;
   } else {
     btn.classList.add("wrong");
     document.getElementById("feedback").innerText = `❌ 不正解... (正解は: ${correct})`;
     document.getElementById("feedback").style.color = "#e74c3c";
+    const wrongQuestion = currentQuestions[currentIndex].question;
+    mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
+    saveMistakeCounts();
+    document.getElementById("question-text").style.color =
+      getQuestionColorByMistake(mistakeCounts[wrongQuestion]);
+
+    if (mistakeFocusMode) {
+      const reviewQuestion = currentQuestions[currentIndex];
+      // 1〜3問先に再配置して、近いタイミングで復習できるようにする
+      const minInsertPos = currentIndex + 1;
+      const maxInsertPosExclusive = Math.min(currentIndex + 4, currentQuestions.length + 1);
+      if (minInsertPos < maxInsertPosExclusive) {
+        const insertPos = minInsertPos + Math.floor(Math.random() * (maxInsertPosExclusive - minInsertPos));
+        currentQuestions.splice(insertPos, 0, reviewQuestion);
+      }
+    }
     // 正解のボタンを緑にする
     buttons.forEach(b => {
       if(b.innerText === correct) b.classList.add("correct");
@@ -1202,17 +1427,46 @@ function checkAnswer(btn, selected, correct) {
   document.getElementById("next-btn").classList.remove("hidden");
 }
 
+function spawnCelebrateEffect(targetBtn, symbols) {
+  const rect = targetBtn.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const e = document.createElement("div");
+    e.className = "celebrate";
+    e.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+    e.style.left = `${rect.left + rect.width / 2 + (Math.random() * 80 - 40)}px`;
+    e.style.top = `${rect.top + rect.height / 2 + (Math.random() * 20 - 10)}px`;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 850);
+  }
+}
+
 function nextQuestion() {
   currentIndex++;
   if (currentIndex < currentQuestions.length) {
     showQuestion();
   } else {
+    if (!sessionRecorded) {
+      addDefeatedStats(score);
+      sessionRecorded = true;
+    }
+    renderHomeStats();
     document.getElementById("quiz-screen").classList.add("hidden");
     document.getElementById("result-screen").classList.remove("hidden");
     document.getElementById("final-score").innerText = 
       `${currentQuestions.length}問中、${score}問正解しました！`;
   }
 }
+
+function returnToTitle() {
+  currentQuestions = [];
+  currentIndex = 0;
+  score = 0;
+  document.getElementById("result-screen").classList.add("hidden");
+  document.getElementById("quiz-screen").classList.add("hidden");
+  document.getElementById("setup-screen").classList.remove("hidden");
+  renderHomeStats();
+}
+renderHomeStats();
 </script>
 </body>
 </html>
