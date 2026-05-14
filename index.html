@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界史 四択学習アプリ</title>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  h1 { text-align: center; color: #2c3e50; font-size: 1.5em; }
+  .filter-group { margin-bottom: 15px; }
+  label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+  select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; background-color: #fff; }
+  button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 10px; font-weight: bold; transition: background-color 0.2s; }
+  button:hover { background-color: #2980b9; }
+  .choice-btn { background-color: #ecf0f1; color: #333; text-align: left; margin-bottom: 10px; padding: 15px; border-radius: 5px; font-size: 1em; }
+  .choice-btn:hover { background-color: #d5dbdb; }
+  .correct { background-color: #2ecc71 !important; color: white; }
+  .wrong { background-color: #e74c3c !important; color: white; }
+  #feedback { font-size: 1.2em; font-weight: bold; text-align: center; margin-top: 15px; min-height: 1.5em; }
+  .hidden { display: none; }
+  .meta-info { font-size: 0.8em; color: #7f8c8d; margin-bottom: 15px; text-align: center; }
+  .score-display { text-align: center; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; color: #e67e22; }
+</style>
+</head>
+<body>
+
+<div class="container" id="setup-screen">
+  <h1>🌍 世界史 四択学習アプリ</h1>
+  <p style="text-align:center; font-size:0.9em; color:#666;">フィルタを選んでスタートしてください</p>
+  
+  <div class="filter-group">
+    <label>📌 ジャンル (人物・王朝など)</label>
+    <select id="filter-type">
+      <option value="すべて">すべて</option>
+      <option value="人物">人物</option>
+      <option value="王朝・国家">王朝・国家</option>
+      <option value="文化・宗教">文化・宗教</option>
+      <option value="その他">その他・出来事</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>🗺️ 地域</label>
+    <select id="filter-region">
+      <option value="すべて">すべて</option>
+      <option value="オリエント・中東">オリエント・中東</option>
+      <option value="ギリシア・ローマ">ギリシア・ローマ</option>
+      <option value="インド・東南アジア">インド・東南アジア</option>
+      <option value="中国・東アジア">中国・東アジア</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>⏳ 時代</label>
+    <select id="filter-era">
+      <option value="すべて">すべて</option>
+      <option value="古代（紀元前）">古代（紀元前）</option>
+      <option value="中世以降（〜世紀）">中世以降</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>🔥 難易度</label>
+    <select id="filter-difficulty">
+      <option value="すべて">すべて</option>
+      <option value="簡単">簡単</option>
+      <option value="普通">普通</option>
+      <option value="難しい">難しい</option>
+    </select>
+  </div>
+
+  <button onclick="startQuiz()">クイズをはじめる</button>
+</div>
+
+<div class="container hidden" id="quiz-screen">
+  <div class="meta-info" id="question-meta"></div>
+  <h2 id="question-text" style="font-size: 1.3em; line-height: 1.4;"></h2>
+  <div id="choices-container"></div>
+  <p id="feedback"></p>
+  <button id="next-btn" class="hidden" onclick="nextQuestion()">次の問題へ</button>
+</div>
+
+<div class="container hidden" id="result-screen">
+  <h1>結果発表 🎉</h1>
+  <div class="score-display" id="final-score"></div>
+  <button onclick="location.reload()">タイトルに戻る</button>
+</div>
+
+<script>
+// 【データの入力】ご用意いただいたデータをここに配列として追加していきます
+const rawData = [
+  ["500万年前に出現した猿人が狩猟・採集生活で使っていたのは何か?","打製石器"],
+  ["紀元前3000年頃にメソポタミアに都市国家群を建設したのは何人か?","シュメール人"],
+  ["紀元前18世紀頃にメソポタミアを統一したのは誰か?","ハンムラビ王"],
+  ["「エジプトはナイルのたまもの」という言葉が有名な歴史家は誰か?","ヘロドトス"],
+  ["古代エジプトの宗教で多神教のなかで主神とされた太陽神の名前は何か?","ラー"],
+  ["世界最古の表音文字でアルファベットの起源となった文字は何か?","フェニキア文字"],
+  ["紀元前538年に新バビロニアが滅ぼされ、エルサレムに帰還したヘブライ人が生んだ唯一神ヤハウェを信仰する宗教は何か?","ユダヤ教"],
+  ["紀元前525年にエジプトを征服して全オリエントを統一したアケメネス朝の王は誰か?","カンビュセス二世"],
+  ["アケメネス朝で信仰された宗教は何か?","ゾロアスター教"],
+  ["紀元前431年に始まったアテネとスパルタとの戦いを何というか?","ペロポネソス戦争"],
+  ["ソクラテスの弟子でイデア論を唱えたギリシアの哲学者は誰か?","プラトン"],
+  ["紀元前27年にオクタウィアヌスが元老院から受けた称号は何か?","アウグストゥス"],
+  ["313年にローマ帝国皇帝コンスタンティヌス帝がキリスト教を公認した勅令を何というか?","ミラノ勅令"],
+  ["紀元前317年頃インド史上初の統一国家マウリヤ朝を建国したのは誰か?","チャンドラグプタ"],
+  ["バラモン教に民間信仰や仏教の要素を取り入れて成立したものは何か?","ヒンドゥー教"],
+  ["紀元前16世紀頃に黄河中下流域に出現した、現在確認できる中国最古の王朝を何というか?","殷"],
+  ["中国の春秋後期にあらわられた人物で、周の「礼」を理想として、「仁」の実践を説いた人物は誰か?","孔子"],
+  ["紀元前202年に漢(前漢)を建国したのは誰か?","劉邦"],
+  ["随が導入した官吏任官制度は何か?","科挙"],
+  ["622年にムハンマドが信者を連れて移住したことを何というか?","ヒジュラ"],
+  ["イスラム教の唯一神をなんというか?","アッラー"]
+];
+
+// すべての答えのリスト（ダミーの選択肢を作るため）
+const allAnswers = rawData.map(d => d[1]);
+
+// 問題の自動カテゴリ分けロジック
+function analyzeQuestion(q, a) {
+  let type = "その他";
+  if (q.includes("誰") || q.includes("人物") || q.includes("王") || q.includes("帝")) type = "人物";
+  else if (q.includes("朝") || q.includes("国") || q.includes("何人")) type = "王朝・国家";
+  else if (q.includes("文字") || q.includes("宗教") || q.includes("教") || q.includes("文化")) type = "文化・宗教";
+
+  let region = "その他";
+  if (q.match(/エジプト|メソポタミア|シュメール|バビロン|オリエント|アケメネス|イスラム|ムハンマド/)) region = "オリエント・中東";
+  else if (q.match(/ギリシア|アテネ|スパルタ|ローマ|マケドニア/)) region = "ギリシア・ローマ";
+  else if (q.match(/インド|マウリヤ|東南アジア|ベトナム|ジャワ/)) region = "インド・東南アジア";
+  else if (q.match(/中国|殷|周|秦|漢|随|唐|宋|元/)) region = "中国・東アジア";
+
+  let era = "中世以降（〜世紀）";
+  if (q.match(/万年前|紀元前|古代/)) era = "古代（紀元前）";
+
+  let difficulty = "普通";
+  if (a.length >= 6 || q.length >= 50) difficulty = "難しい";
+  else if (a.length <= 3) difficulty = "簡単";
+
+  return { type, region, era, difficulty };
+}
+
+// データベースの構築
+let questionDB = rawData.map(item => {
+  const q = item[0];
+  const a = item[1];
+  const tags = analyzeQuestion(q, a);
+  return { question: q, answer: a, ...tags };
+});
+
+let currentQuestions = [];
+let currentIndex = 0;
+let score = 0;
+
+function startQuiz() {
+  const filterType = document.getElementById("filter-type").value;
+  const filterRegion = document.getElementById("filter-region").value;
+  const filterEra = document.getElementById("filter-era").value;
+  const filterDifficulty = document.getElementById("filter-difficulty").value;
+
+  // フィルタリング処理
+  currentQuestions = questionDB.filter(q => {
+    return (filterType === "すべて" || q.type === filterType) &&
+           (filterRegion === "すべて" || q.region === filterRegion) &&
+           (filterEra === "すべて" || q.era === filterEra) &&
+           (filterDifficulty === "すべて" || q.difficulty === filterDifficulty);
+  });
+
+  // シャッフル
+  currentQuestions.sort(() => Math.random() - 0.5);
+
+  if (currentQuestions.length === 0) {
+    alert("該当する問題がありません。フィルタ条件を変えてみてください。");
+    return;
+  }
+
+  document.getElementById("setup-screen").classList.add("hidden");
+  document.getElementById("quiz-screen").classList.remove("hidden");
+  currentIndex = 0;
+  score = 0;
+  showQuestion();
+}
+
+function showQuestion() {
+  const qData = currentQuestions[currentIndex];
+  document.getElementById("question-meta").innerText = 
+    `問題 ${currentIndex + 1} / ${currentQuestions.length} | [${qData.region}] [${qData.era}] [${qData.difficulty}]`;
+  document.getElementById("question-text").innerText = qData.question;
+  document.getElementById("feedback").innerText = "";
+  document.getElementById("next-btn").classList.add("hidden");
+
+  // 選択肢の生成 (正解1つ + 不正解3つ)
+  let choices = new Set([qData.answer]);
+  while(choices.size < 4) {
+    const randomAns = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+    choices.add(randomAns);
+  }
+  const choicesArray = Array.from(choices).sort(() => Math.random() - 0.5); // シャッフル
+
+  const container = document.getElementById("choices-container");
+  container.innerHTML = "";
+  
+  choicesArray.forEach(choice => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerText = choice;
+    btn.onclick = () => checkAnswer(btn, choice, qData.answer);
+    container.appendChild(btn);
+  });
+}
+
+function checkAnswer(btn, selected, correct) {
+  // ボタンを非活性化
+  const buttons = document.querySelectorAll(".choice-btn");
+  buttons.forEach(b => b.disabled = true);
+
+  if (selected === correct) {
+    btn.classList.add("correct");
+    document.getElementById("feedback").innerText = "⭕ 正解！";
+    document.getElementById("feedback").style.color = "#2ecc71";
+    score++;
+  } else {
+    btn.classList.add("wrong");
+    document.getElementById("feedback").innerText = `❌ 不正解... (正解は: ${correct})`;
+    document.getElementById("feedback").style.color = "#e74c3c";
+    // 正解のボタンを緑にする
+    buttons.forEach(b => {
+      if(b.innerText === correct) b.classList.add("correct");
+    });
+  }
+  document.getElementById("next-btn").classList.remove("hidden");
+}
+
+function nextQuestion() {
+  currentIndex++;
+  if (currentIndex < currentQuestions.length) {
+    showQuestion();
+  } else {
+    document.getElementById("quiz-screen").classList.add("hidden");
+    document.getElementById("result-screen").classList.remove("hidden");
+    document.getElementById("final-score").innerText = 
+      `${currentQuestions.length}問中、${score}問正解しました！`;
+  }
+}
+</script>
+</body>
+</html>
