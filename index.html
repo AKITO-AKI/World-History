@@ -30,7 +30,7 @@
   <p style="text-align:center; font-size:0.9em; color:#666;">フィルタを選んでスタートしてください</p>
   
   <div class="filter-group">
-    <label>📌 出題形式 (人物・王朝など)</label>
+    <label>📌 ジャンル (人物・王朝など)</label>
     <select id="filter-type">
       <option value="すべて">すべて</option>
       <option value="人物">人物</option>
@@ -1193,8 +1193,18 @@ let mistakeCounts = {};
 let mistakeFocusMode = false;
 
 function getQuestionColorByMistake(count) {
+  // 0回:標準色 / 1回:警告色 / 2回:強警告色 / 3回以上:要復習色
   const colors = ["#2c3e50", "#d35400", "#c0392b", "#8e44ad", "#2d3436"];
   return colors[Math.min(count, colors.length - 1)];
+}
+
+function shuffleArray(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
 }
 
 function startQuiz() {
@@ -1215,7 +1225,7 @@ function startQuiz() {
   });
 
   // シャッフル
-  currentQuestions.sort(() => Math.random() - 0.5);
+  currentQuestions = shuffleArray(currentQuestions);
 
   if (currentQuestions.length === 0) {
     alert("該当する問題がありません。フィルタ条件を変えてみてください。");
@@ -1250,7 +1260,7 @@ function showQuestion() {
   ];
 
   for (const pool of candidatePools) {
-    const shuffledPool = [...new Set(pool)].sort(() => Math.random() - 0.5);
+    const shuffledPool = shuffleArray([...new Set(pool)]);
     for (const ans of shuffledPool) {
       if (wrongAnswers.length >= 3) break;
       if (!used.has(ans)) {
@@ -1268,7 +1278,7 @@ function showQuestion() {
       used.add(randomAns);
     }
   }
-  const choicesArray = [qData.answer, ...wrongAnswers].sort(() => Math.random() - 0.5); // シャッフル
+  const choicesArray = shuffleArray([qData.answer, ...wrongAnswers]);
 
   const container = document.getElementById("choices-container");
   container.innerHTML = "";
@@ -1303,6 +1313,7 @@ function checkAnswer(btn, selected, correct) {
 
     if (mistakeFocusMode) {
       const reviewQuestion = currentQuestions[currentIndex];
+      // 1〜3問先に再配置して、近いタイミングで復習できるようにする
       const insertPos = Math.min(currentQuestions.length, currentIndex + 1 + Math.floor(Math.random() * 3));
       currentQuestions.splice(insertPos, 0, reviewQuestion);
     }
