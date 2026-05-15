@@ -1278,7 +1278,7 @@ const DEFAULT_AI_SETTINGS = {
   endpoint: "https://api.openai.com/v1/chat/completions",
   model: "gpt-4o-mini"
 };
-const MAX_EXPLANATION_TOKENS = 220;
+const MAX_EXPLANATION_TOKENS = 220; // 2〜3文の短い解説を想定
 const AI_PROMPT_TEMPLATE = [
   "問題: {{question}}",
   "正解: {{answer}}",
@@ -1366,9 +1366,10 @@ function initAiSettings() {
   rememberInput.checked = aiSettings.rememberKey;
   endpointInput.value = aiSettings.endpoint || DEFAULT_AI_SETTINGS.endpoint;
   modelInput.value = aiSettings.model || DEFAULT_AI_SETTINGS.model;
-  [keyInput, rememberInput, endpointInput, modelInput].forEach(input => {
-    input.addEventListener("input", updateAiSettingsFromInputs);
-  });
+  keyInput.addEventListener("change", updateAiSettingsFromInputs);
+  rememberInput.addEventListener("change", updateAiSettingsFromInputs);
+  endpointInput.addEventListener("change", updateAiSettingsFromInputs);
+  modelInput.addEventListener("change", updateAiSettingsFromInputs);
 }
 
 function canUseAiExplanation() {
@@ -1409,7 +1410,7 @@ async function requestAiExplanation(qData, selected, isCorrect) {
       body: JSON.stringify(payload)
     });
   } catch (error) {
-    const detail = error && error.message ? error.message : "network error";
+    const detail = error && error.message ? error.message : "通信エラー";
     throw new Error(`AIリクエストがサーバーに届きませんでした: ${detail}。接続やCORS設定を確認してください。`);
   }
 
