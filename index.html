@@ -1309,7 +1309,7 @@ function loadAiSettings() {
 }
 
 let aiSettings = loadAiSettings();
-let explanationRequestId = 0; // 最新のAI解説のみ反映するためのID
+let latestExplanationRequestId = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
   localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
@@ -1353,7 +1353,7 @@ function buildAiPrompt(qData, selected, isCorrect) {
 async function requestAiExplanation(qData, selected, isCorrect) {
   if (!canUseAiExplanation()) return null;
   const payload = {
-    model: aiSettings.model || DEFAULT_AI_SETTINGS.model,
+    model: aiSettings.model,
     messages: [
       { role: "system", content: "あなたは世界史の学習アプリの解説担当です。簡潔で分かりやすい日本語の解説のみを返してください。" },
       { role: "user", content: buildAiPrompt(qData, selected, isCorrect) }
@@ -1362,23 +1362,26 @@ async function requestAiExplanation(qData, selected, isCorrect) {
     max_tokens: MAX_EXPLANATION_TOKENS
   };
 
-  const response = await fetch(aiSettings.endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${aiSettings.apiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch(aiSettings.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${aiSettings.apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (_) {
+    throw new Error("AI request failed due to network error");
+  }
 
   if (!response.ok) {
     throw new Error(`AI request failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  const content = data && data.choices && data.choices[0] && data.choices[0].message
-    ? data.choices[0].message.content
-    : "";
+  const content = data?.choices?.[0]?.message?.content || "";
   return typeof content === "string" && content.trim() ? content.trim() : null;
 }
 
@@ -1527,7 +1530,7 @@ function renderExplanation(qData, selected, isCorrect) {
     return;
   }
 
-  const requestId = ++explanationRequestId;
+  const requestId = ++latestExplanationRequestId;
   correctEl.innerText = "AI解説を生成中...";
   if (isCorrect) {
     wrongEl.innerText = "";
@@ -1539,7 +1542,7 @@ function renderExplanation(qData, selected, isCorrect) {
 
   requestAiExplanation(qData, selected, isCorrect)
     .then(explanation => {
-      if (requestId !== explanationRequestId) return;
+      if (requestId !== latestExplanationRequestId) return;
       correctEl.innerText = explanation || fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
@@ -1547,7 +1550,7 @@ function renderExplanation(qData, selected, isCorrect) {
       }
     })
     .catch(() => {
-      if (requestId !== explanationRequestId) return;
+      if (requestId !== latestExplanationRequestId) return;
       correctEl.innerText = fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
