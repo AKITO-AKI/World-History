@@ -1320,7 +1320,7 @@ function loadAiSettings() {
 }
 
 let aiSettings = loadAiSettings();
-let latestExplanationRequestId = 0; // 最新のAI解説のみ反映するためのID
+let explanationRequestCounter = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
   const storedSettings = {
@@ -1392,16 +1392,21 @@ async function requestAiExplanation(qData, selected, isCorrect) {
       body: JSON.stringify(payload)
     });
   } catch (error) {
-    throw new Error(`AI request failed due to network error: ${error.message}`);
+    const detail = error && error.message ? error.message : "network/CORS error";
+    throw new Error(`AI request failed before reaching server: ${detail}`);
   }
 
   if (!response.ok) {
-    throw new Error(`AI request failed with status ${response.status}`);
+    const hint = response.status === 401 || response.status === 403
+      ? " (APIキーを確認してください)"
+      : "";
+    throw new Error(`AI request failed with status ${response.status} ${response.statusText}${hint}`.trim());
   }
 
   const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content || "";
-  return typeof content === "string" && content.trim() ? content.trim() : null;
+  const rawContent = data?.choices?.[0]?.message?.content;
+  const content = typeof rawContent === "string" ? rawContent : "";
+  return content.trim() || null;
 }
 
 function getTodayDateKey() {
@@ -1549,7 +1554,7 @@ function renderExplanation(qData, selected, isCorrect) {
     return;
   }
 
-  const requestId = ++latestExplanationRequestId;
+  const requestId = ++explanationRequestCounter;
   correctEl.innerText = "AI解説を生成中...";
   if (isCorrect) {
     wrongEl.innerText = "";
@@ -1561,7 +1566,7 @@ function renderExplanation(qData, selected, isCorrect) {
 
   requestAiExplanation(qData, selected, isCorrect)
     .then(explanation => {
-      if (requestId !== latestExplanationRequestId) return;
+      if (requestId !== explanationRequestCounter) return;
       correctEl.innerText = explanation || fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
@@ -1570,7 +1575,7 @@ function renderExplanation(qData, selected, isCorrect) {
     })
     .catch(error => {
       console.warn("AI解説の取得に失敗しました。", error);
-      if (requestId !== latestExplanationRequestId) return;
+      if (requestId !== explanationRequestCounter) return;
       correctEl.innerText = fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
