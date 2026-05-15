@@ -1263,11 +1263,11 @@ function getTodayDateKey() {
 function loadStats() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "{}");
-    const safeParsed = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    const validatedStats = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     return {
-      totalDefeated: Number(safeParsed.totalDefeated || 0),
-      dailyDefeated: safeParsed.dailyDefeated && typeof safeParsed.dailyDefeated === "object" && !Array.isArray(safeParsed.dailyDefeated)
-        ? safeParsed.dailyDefeated
+      totalDefeated: Number(validatedStats.totalDefeated || 0),
+      dailyDefeated: validatedStats.dailyDefeated && typeof validatedStats.dailyDefeated === "object" && !Array.isArray(validatedStats.dailyDefeated)
+        ? validatedStats.dailyDefeated
         : {}
     };
   } catch (_) {
