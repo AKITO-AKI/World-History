@@ -1256,6 +1256,10 @@ let segmentStartAnswered = 0;
 let segmentStartScore = 0;
 let segmentMistakes = [];
 
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
 function getTodayDateKey() {
   return new Date().toLocaleDateString("en-CA");
 }
@@ -1263,10 +1267,10 @@ function getTodayDateKey() {
 function loadStats() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "{}");
-    const validatedStats = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    const validatedStats = isPlainObject(parsed) ? parsed : {};
     return {
       totalDefeated: Number(validatedStats.totalDefeated || 0),
-      dailyDefeated: validatedStats.dailyDefeated && typeof validatedStats.dailyDefeated === "object" && !Array.isArray(validatedStats.dailyDefeated)
+      dailyDefeated: isPlainObject(validatedStats.dailyDefeated)
         ? validatedStats.dailyDefeated
         : {}
     };
@@ -1282,7 +1286,7 @@ function saveStats() {
 function loadMistakeCounts() {
   try {
     const parsed = JSON.parse(localStorage.getItem(MISTAKE_KEY) || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    return isPlainObject(parsed) ? parsed : {};
   } catch (error) {
     return {};
   }
@@ -1295,7 +1299,7 @@ function saveMistakeCounts() {
 function loadWrongChoiceCounts() {
   try {
     const parsed = JSON.parse(localStorage.getItem(WRONG_CHOICE_KEY) || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    return isPlainObject(parsed) ? parsed : {};
   } catch (error) {
     return {};
   }
@@ -1419,7 +1423,7 @@ function formatAnalysisSummary(totalWrongChoices) {
 function analyzeMistakes() {
   const result = document.getElementById("analysis-result");
   result.innerHTML = "";
-  const totalWrongChoices = Object.values(wrongChoiceCounts).reduce((sum, v) => sum + v, 0);
+  const totalWrongChoices = Object.values(wrongChoiceCounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
   if (totalWrongChoices === 0) {
     result.innerText = "まだ不正解データがありません。まずはクイズに挑戦してください。";
     return;
