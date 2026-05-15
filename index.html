@@ -126,7 +126,7 @@
   </div>
 
   <div class="analysis-panel">
-    <div class="analysis-title"><span aria-hidden="true">🤖</span> AI苦手分析</div>
+    <div class="analysis-title" aria-label="AI苦手分析"><span aria-hidden="true">🤖</span> AI苦手分析</div>
     <div class="analysis-muted">不正解の選択肢を集計して、苦手分野を自動で解析します。</div>
     <button class="secondary-btn" onclick="analyzeMistakes()">AIに解析させる</button>
     <div id="analysis-result" class="analysis-result"></div>
@@ -139,7 +139,7 @@
   <div id="choices-container"></div>
   <p id="feedback"></p>
   <div id="explanation-panel" class="explanation-panel hidden">
-    <div class="explanation-title"><span aria-hidden="true">🤖</span> AI解説</div>
+    <div class="explanation-title" aria-label="AI解説"><span aria-hidden="true">🤖</span> AI解説</div>
     <div id="explanation-correct" class="explanation-item"></div>
     <div id="explanation-wrong" class="explanation-item hidden"></div>
   </div>
@@ -1243,7 +1243,6 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 const STATS_KEY = "worldHistoryStatsV1";
 const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 const WRONG_CHOICE_KEY = "worldHistoryWrongChoiceCountsV1";
-const AI_ANALYSIS_SUMMARY_LABEL = "AI分析結果";
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
@@ -1413,6 +1412,10 @@ function getTopEntries(counts, limit) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit);
 }
 
+function formatAnalysisSummary(totalWrongChoices) {
+  return `AI分析結果: 不正解の選択肢 ${totalWrongChoices}件を解析しました。`;
+}
+
 function analyzeMistakes() {
   const result = document.getElementById("analysis-result");
   result.innerHTML = "";
@@ -1434,7 +1437,7 @@ function analyzeMistakes() {
   });
 
   const summary = document.createElement("div");
-  summary.innerText = `${AI_ANALYSIS_SUMMARY_LABEL}: 不正解の選択肢 ${totalWrongChoices}件を解析しました。`;
+  summary.innerText = formatAnalysisSummary(totalWrongChoices);
   result.appendChild(summary);
 
   const list = document.createElement("ul");
