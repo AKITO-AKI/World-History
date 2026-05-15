@@ -140,7 +140,7 @@
       <input id="ai-api-model" type="text" placeholder="gpt-4o-mini">
     </div>
     <div class="ai-settings-note">
-      「保存する」を選ぶとAPIキーはブラウザのlocalStorageに保存されます。開発者ツールや通信ログから確認できるため共有端末では入力しないでください。CORS制限がある場合は中継APIをご利用ください。
+      「保存する」を選ぶとAPIキーはブラウザのlocalStorageに保存されます。開発者ツールや通信ログから確認でき、第三者に悪用されると課金の可能性があります。共有端末では入力しないでください。CORS制限がある場合は中継APIをご利用ください。
     </div>
   </div>
 
@@ -1410,14 +1410,15 @@ async function requestAiExplanation(qData, selected, isCorrect) {
     });
   } catch (error) {
     const detail = error && error.message ? error.message : "network error";
-    throw new Error(`AI request failed before reaching server: ${detail}. 接続やCORS設定を確認してください。`);
+    throw new Error(`AIリクエストがサーバーに届きませんでした: ${detail}。接続やCORS設定を確認してください。`);
   }
 
   if (!response.ok) {
     const hint = response.status === 401 || response.status === 403
-      ? " (APIキーを確認してください)"
+      ? "APIキーを確認してください"
       : "";
-    throw new Error(`AI request failed with status ${response.status} ${response.statusText}${hint}`.trim());
+    const suffix = hint ? ` / ${hint}` : "";
+    throw new Error(`AIリクエストが失敗しました（${response.status} ${response.statusText}${suffix}）`);
   }
 
   const data = await response.json();
@@ -1593,7 +1594,10 @@ function renderExplanation(qData, selected, isCorrect) {
     .catch(error => {
       console.warn("AI解説の取得に失敗しました。", error);
       if (requestId !== currentExplanationRequestId) return;
-      correctEl.innerText = `AI解説の取得に失敗したため、簡易解説を表示します。\n${fallbackCorrect}`;
+      correctEl.innerText = [
+        "AI解説の取得に失敗したため、簡易解説を表示します。",
+        fallbackCorrect
+      ].join("\n");
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
         wrongEl.classList.remove("hidden");
