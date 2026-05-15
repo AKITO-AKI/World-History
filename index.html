@@ -126,7 +126,7 @@
   </div>
 
   <div class="analysis-panel">
-    <div class="analysis-title">🤖 AI苦手分析</div>
+    <div class="analysis-title"><span aria-hidden="true">🤖</span> AI苦手分析</div>
     <div class="analysis-muted">不正解の選択肢を集計して、苦手分野を自動で解析します。</div>
     <button class="secondary-btn" onclick="analyzeMistakes()">AIに解析させる</button>
     <div id="analysis-result" class="analysis-result"></div>
@@ -139,7 +139,7 @@
   <div id="choices-container"></div>
   <p id="feedback"></p>
   <div id="explanation-panel" class="explanation-panel hidden">
-    <div class="explanation-title">🤖 AI解説</div>
+    <div class="explanation-title"><span aria-hidden="true">🤖</span> AI解説</div>
     <div id="explanation-correct" class="explanation-item"></div>
     <div id="explanation-wrong" class="explanation-item hidden"></div>
   </div>
@@ -1243,6 +1243,7 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 const STATS_KEY = "worldHistoryStatsV1";
 const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 const WRONG_CHOICE_KEY = "worldHistoryWrongChoiceCountsV1";
+const AI_ANALYSIS_SUMMARY_LABEL = "AI分析結果";
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
@@ -1367,18 +1368,18 @@ function findQuestionByAnswer(answer) {
 }
 
 function buildCorrectExplanation(qData) {
-  return `✅ 正解「${qData.answer}」は「${qData.question}」に対応する用語です。` +
+  return `正解「${qData.answer}」は「${qData.question}」に対応する用語です。` +
     `分類: [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.type}]。`;
 }
 
 function buildWrongExplanation(selected, qData) {
   const matched = findQuestionByAnswer(selected);
   if (matched) {
-    return `❌ 選択肢「${selected}」は「${matched.question}」の答えで、` +
+    return `不正解の選択肢「${selected}」は「${matched.question}」の答えで、` +
       `[${matched.theme}] [${matched.region}] [${matched.era}]の内容です。` +
       `今回は「${qData.theme}」の文脈に合いません。`;
   }
-  return `❌ 選択肢「${selected}」は別の問題で使われる語ですが、今回の設問には一致しません。`;
+  return `不正解の選択肢「${selected}」は別の問題で使われる語ですが、今回の設問には一致しません。`;
 }
 
 function renderExplanation(qData, selected, isCorrect) {
@@ -1396,7 +1397,7 @@ function renderExplanation(qData, selected, isCorrect) {
   panel.classList.remove("hidden");
 }
 
-function addCount(target, key, amount) {
+function incrementAggregate(target, key, amount) {
   if (!key) return;
   target[key] = (target[key] || 0) + amount;
 }
@@ -1425,15 +1426,15 @@ function analyzeMistakes() {
   Object.entries(wrongChoiceCounts).forEach(([answer, count]) => {
     const qData = findQuestionByAnswer(answer);
     if (!qData) return;
-    addCount(aggregates.theme, qData.theme, count);
-    addCount(aggregates.region, qData.region, count);
-    addCount(aggregates.era, qData.era, count);
-    addCount(aggregates.type, qData.type, count);
-    addCount(aggregates.difficulty, qData.difficulty, count);
+    incrementAggregate(aggregates.theme, qData.theme, count);
+    incrementAggregate(aggregates.region, qData.region, count);
+    incrementAggregate(aggregates.era, qData.era, count);
+    incrementAggregate(aggregates.type, qData.type, count);
+    incrementAggregate(aggregates.difficulty, qData.difficulty, count);
   });
 
   const summary = document.createElement("div");
-  summary.innerText = `AI分析結果: 不正解の選択肢 ${totalWrongChoices}件を解析しました。`;
+  summary.innerText = `${AI_ANALYSIS_SUMMARY_LABEL}: 不正解の選択肢 ${totalWrongChoices}件を解析しました。`;
   result.appendChild(summary);
 
   const list = document.createElement("ul");
