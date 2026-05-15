@@ -1279,6 +1279,14 @@ const DEFAULT_AI_SETTINGS = {
   model: "gpt-4o-mini"
 };
 const MAX_EXPLANATION_TOKENS = 220;
+const AI_PROMPT_TEMPLATE = [
+  "問題: {{question}}",
+  "正解: {{answer}}",
+  "あなたの回答: {{selected}}",
+  "判定: {{verdict}}",
+  "分類: {{category}}",
+  "上記の内容を踏まえ、学習者向けに2〜3文で簡潔な解説を日本語で作成してください。"
+].join("\n");
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
@@ -1320,7 +1328,7 @@ function loadAiSettings() {
 }
 
 let aiSettings = loadAiSettings();
-let explanationRequestCounter = 0; // 最新のAI解説のみ反映するためのID
+let currentExplanationRequestId = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
   const storedSettings = {
@@ -1366,7 +1374,13 @@ function canUseAiExplanation() {
 
 function buildAiPrompt(qData, selected, isCorrect) {
   const verdict = isCorrect ? "正解" : "不正解";
-  return `問題: ${qData.question}\n正解: ${qData.answer}\nあなたの回答: ${selected}\n判定: ${verdict}\n分類: ${qData.theme}/${qData.region}/${qData.era}/${qData.type}\n上記の内容を踏まえ、学習者向けに2〜3文で簡潔な解説を日本語で作成してください。`;
+  const category = `${qData.theme}/${qData.region}/${qData.era}/${qData.type}`;
+  return AI_PROMPT_TEMPLATE
+    .replace("{{question}}", qData.question)
+    .replace("{{answer}}", qData.answer)
+    .replace("{{selected}}", selected)
+    .replace("{{verdict}}", verdict)
+    .replace("{{category}}", category);
 }
 
 async function requestAiExplanation(qData, selected, isCorrect) {
@@ -1392,7 +1406,7 @@ async function requestAiExplanation(qData, selected, isCorrect) {
       body: JSON.stringify(payload)
     });
   } catch (error) {
-    const detail = error && error.message ? error.message : "network/CORS error";
+    const detail = error && error.message ? error.message : "network error";
     throw new Error(`AI request failed before reaching server: ${detail}`);
   }
 
@@ -1554,7 +1568,7 @@ function renderExplanation(qData, selected, isCorrect) {
     return;
   }
 
-  const requestId = ++explanationRequestCounter;
+  const requestId = ++currentExplanationRequestId;
   correctEl.innerText = "AI解説を生成中...";
   if (isCorrect) {
     wrongEl.innerText = "";
@@ -1566,7 +1580,7 @@ function renderExplanation(qData, selected, isCorrect) {
 
   requestAiExplanation(qData, selected, isCorrect)
     .then(explanation => {
-      if (requestId !== explanationRequestCounter) return;
+      if (requestId !== currentExplanationRequestId) return;
       correctEl.innerText = explanation || fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
@@ -1575,7 +1589,7 @@ function renderExplanation(qData, selected, isCorrect) {
     })
     .catch(error => {
       console.warn("AI解説の取得に失敗しました。", error);
-      if (requestId !== explanationRequestCounter) return;
+      if (requestId !== currentExplanationRequestId) return;
       correctEl.innerText = fallbackCorrect;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
