@@ -1328,6 +1328,7 @@ function loadAiSettings() {
 }
 
 let aiSettings = loadAiSettings();
+let aiSettingsInitialized = false;
 let currentExplanationRequestId = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
@@ -1354,6 +1355,8 @@ function updateAiSettingsFromInputs() {
 }
 
 function initAiSettings() {
+  if (aiSettingsInitialized) return;
+  aiSettingsInitialized = true;
   const keyInput = document.getElementById("ai-api-key");
   const rememberInput = document.getElementById("ai-remember-key");
   const endpointInput = document.getElementById("ai-api-endpoint");
@@ -1407,7 +1410,7 @@ async function requestAiExplanation(qData, selected, isCorrect) {
     });
   } catch (error) {
     const detail = error && error.message ? error.message : "network error";
-    throw new Error(`AI request failed before reaching server: ${detail}`);
+    throw new Error(`AI request failed before reaching server: ${detail}. 接続やCORS設定を確認してください。`);
   }
 
   if (!response.ok) {
@@ -1590,7 +1593,7 @@ function renderExplanation(qData, selected, isCorrect) {
     .catch(error => {
       console.warn("AI解説の取得に失敗しました。", error);
       if (requestId !== currentExplanationRequestId) return;
-      correctEl.innerText = fallbackCorrect;
+      correctEl.innerText = `AI解説の取得に失敗したため、簡易解説を表示します。\n${fallbackCorrect}`;
       if (!isCorrect) {
         wrongEl.innerText = fallbackWrong;
         wrongEl.classList.remove("hidden");
