@@ -126,7 +126,7 @@
   </div>
 
   <div class="analysis-panel">
-    <div class="analysis-title" aria-label="AI苦手分析"><span aria-hidden="true">🤖</span> AI苦手分析</div>
+    <div class="analysis-title"><span aria-hidden="true">🤖</span> AI苦手分析</div>
     <div class="analysis-muted">不正解の選択肢を集計して、苦手分野を自動で解析します。</div>
     <button class="secondary-btn" onclick="analyzeMistakes()">AIに解析させる</button>
     <div id="analysis-result" class="analysis-result"></div>
@@ -139,7 +139,7 @@
   <div id="choices-container"></div>
   <p id="feedback"></p>
   <div id="explanation-panel" class="explanation-panel hidden">
-    <div class="explanation-title" aria-label="AI解説"><span aria-hidden="true">🤖</span> AI解説</div>
+    <div class="explanation-title"><span aria-hidden="true">🤖</span> AI解説</div>
     <div id="explanation-correct" class="explanation-item"></div>
     <div id="explanation-wrong" class="explanation-item hidden"></div>
   </div>
@@ -1279,7 +1279,7 @@ function saveStats() {
 function loadMistakeCounts() {
   try {
     const parsed = JSON.parse(localStorage.getItem(MISTAKE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (error) {
     return {};
   }
@@ -1292,7 +1292,7 @@ function saveMistakeCounts() {
 function loadWrongChoiceCounts() {
   try {
     const parsed = JSON.parse(localStorage.getItem(WRONG_CHOICE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (error) {
     return {};
   }
@@ -1367,16 +1367,13 @@ function findQuestionByAnswer(answer) {
 }
 
 function buildCorrectExplanation(qData) {
-  return `正解「${qData.answer}」は「${qData.question}」に対応する用語です。` +
-    `分類: [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.type}]。`;
+  return `正解「${qData.answer}」は「${qData.question}」に対応する用語です。分類: [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.type}]。`;
 }
 
 function buildWrongExplanation(selected, qData) {
   const matched = findQuestionByAnswer(selected);
   if (matched) {
-    return `不正解の選択肢「${selected}」は「${matched.question}」の答えで、` +
-      `[${matched.theme}] [${matched.region}] [${matched.era}]の内容です。` +
-      `今回は「${qData.theme}」の文脈に合いません。`;
+    return `不正解の選択肢「${selected}」は「${matched.question}」の答えで、[${matched.theme}] [${matched.region}] [${matched.era}]の内容です。今回は「${qData.theme}」の文脈に合いません。`;
   }
   return `不正解の選択肢「${selected}」は別の問題で使われる語ですが、今回の設問には一致しません。`;
 }
