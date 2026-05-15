@@ -134,7 +134,7 @@
       <input id="ai-api-model" type="text" placeholder="gpt-4o-mini">
     </div>
     <div class="ai-settings-note">
-      APIキーはブラウザのlocalStorageに保存され、リクエストはブラウザから直接送信されます。CORS制限がある場合は中継APIをご利用ください。
+      APIキーはブラウザのlocalStorageに保存され、リクエストはブラウザから直接送信されます。共有端末では入力しないでください。CORS制限がある場合は中継APIをご利用ください。
     </div>
   </div>
 
@@ -1272,6 +1272,7 @@ const DEFAULT_AI_SETTINGS = {
   endpoint: "https://api.openai.com/v1/chat/completions",
   model: "gpt-4o-mini"
 };
+const MAX_EXPLANATION_TOKENS = 220;
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
@@ -1308,7 +1309,7 @@ function loadAiSettings() {
 }
 
 let aiSettings = loadAiSettings();
-let explanationRequestId = 0;
+let explanationRequestId = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
   localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
@@ -1358,7 +1359,7 @@ async function requestAiExplanation(qData, selected, isCorrect) {
       { role: "user", content: buildAiPrompt(qData, selected, isCorrect) }
     ],
     temperature: 0.6,
-    max_tokens: 220
+    max_tokens: MAX_EXPLANATION_TOKENS
   };
 
   const response = await fetch(aiSettings.endpoint, {
@@ -1371,7 +1372,7 @@ async function requestAiExplanation(qData, selected, isCorrect) {
   });
 
   if (!response.ok) {
-    throw new Error("AI request failed");
+    throw new Error(`AI request failed with status ${response.status}`);
   }
 
   const data = await response.json();
