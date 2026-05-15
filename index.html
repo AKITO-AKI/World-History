@@ -29,6 +29,17 @@
   .checkpoint-summary { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 12px; line-height: 1.6; }
   .checkpoint-mistakes { margin: 0; padding-left: 18px; font-size: 0.9em; color: #555; }
   .checkpoint-mistakes li { margin-bottom: 6px; }
+  .explanation-panel { margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f8fafc; }
+  .explanation-title { font-weight: bold; margin-bottom: 6px; color: #34495e; }
+  .explanation-item { font-size: 0.95em; line-height: 1.5; margin-bottom: 6px; }
+  .explanation-item:last-child { margin-bottom: 0; }
+  .analysis-panel { margin-top: 15px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f8fafc; }
+  .analysis-title { font-weight: bold; margin-bottom: 6px; color: #34495e; }
+  .analysis-result { margin-top: 8px; font-size: 0.9em; color: #333; line-height: 1.5; }
+  .analysis-list { margin: 6px 0 0; padding-left: 18px; }
+  .analysis-muted { color: #6b7280; font-size: 0.85em; margin-bottom: 6px; }
+  .secondary-btn { background-color: #8e44ad; }
+  .secondary-btn:hover { background-color: #7d3c98; }
   .celebrate { position: fixed; font-size: 18px; pointer-events: none; animation: pop 800ms ease-out forwards; z-index: 9999; }
   @keyframes pop {
     0% { transform: translateY(0) scale(0.8); opacity: 1; }
@@ -113,6 +124,13 @@
     <div style="font-size:0.9em; font-weight:bold; margin:8px 0 4px;">📈 撃破数推移（累計）</div>
     <ul class="stats-list" id="trend-report-list"></ul>
   </div>
+
+  <div class="analysis-panel">
+    <div class="analysis-title">🤖 AI苦手分析</div>
+    <div class="analysis-muted">不正解の選択肢を集計して、苦手分野を自動で解析します。</div>
+    <button class="secondary-btn" onclick="analyzeMistakes()">AIに解析させる</button>
+    <div id="analysis-result" class="analysis-result"></div>
+  </div>
 </div>
 
 <div class="container hidden" id="quiz-screen">
@@ -120,6 +138,11 @@
   <h2 id="question-text" style="font-size: 1.3em; line-height: 1.4;"></h2>
   <div id="choices-container"></div>
   <p id="feedback"></p>
+  <div id="explanation-panel" class="explanation-panel hidden">
+    <div class="explanation-title">🤖 AI解説</div>
+    <div id="explanation-correct" class="explanation-item"></div>
+    <div id="explanation-wrong" class="explanation-item hidden"></div>
+  </div>
   <button id="next-btn" class="hidden" onclick="nextQuestion()">次の問題へ</button>
 </div>
 
@@ -1217,14 +1240,16 @@ let questionDB = rawData.map(item => {
 // すべての答えのリスト（ダミーの選択肢を作るため）
 const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 
+const STATS_KEY = "worldHistoryStatsV1";
+const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
+const WRONG_CHOICE_KEY = "worldHistoryWrongChoiceCountsV1";
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
 let answeredCount = 0;
 let mistakeCounts = loadMistakeCounts();
+let wrongChoiceCounts = loadWrongChoiceCounts();
 let mistakeFocusMode = false;
-const STATS_KEY = "worldHistoryStatsV1";
-const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 let appStats = loadStats();
 let sessionRecorded = false;
 let segmentStartAnswered = 0;
@@ -1262,6 +1287,25 @@ function loadMistakeCounts() {
 
 function saveMistakeCounts() {
   localStorage.setItem(MISTAKE_KEY, JSON.stringify(mistakeCounts));
+}
+
+function loadWrongChoiceCounts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WRONG_CHOICE_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveWrongChoiceCounts() {
+  localStorage.setItem(WRONG_CHOICE_KEY, JSON.stringify(wrongChoiceCounts));
+}
+
+function recordWrongChoice(selected) {
+  if (!selected) return;
+  wrongChoiceCounts[selected] = (wrongChoiceCounts[selected] || 0) + 1;
+  saveWrongChoiceCounts();
 }
 
 function addDefeatedStats(count) {
@@ -1318,6 +1362,129 @@ function shuffleArray(array) {
   return result;
 }
 
+function findQuestionByAnswer(answer) {
+  return questionDB.find(q => q.answer === answer);
+}
+
+function buildCorrectExplanation(qData) {
+  return `✅ 正解「${qData.answer}」は「${qData.question}」に対応する用語です。` +
+    `分類: [${qData.theme}] [${qData.region}] [${qData.era}] [${qData.type}]。`;
+}
+
+function buildWrongExplanation(selected, qData) {
+  const matched = findQuestionByAnswer(selected);
+  if (matched) {
+    return `❌ 選択肢「${selected}」は「${matched.question}」の答えで、` +
+      `[${matched.theme}] [${matched.region}] [${matched.era}]の内容です。` +
+      `今回は「${qData.theme}」の文脈に合いません。`;
+  }
+  return `❌ 選択肢「${selected}」は別の問題で使われる語ですが、今回の設問には一致しません。`;
+}
+
+function renderExplanation(qData, selected, isCorrect) {
+  const panel = document.getElementById("explanation-panel");
+  const correctEl = document.getElementById("explanation-correct");
+  const wrongEl = document.getElementById("explanation-wrong");
+  correctEl.innerText = buildCorrectExplanation(qData);
+  if (isCorrect) {
+    wrongEl.innerText = "";
+    wrongEl.classList.add("hidden");
+  } else {
+    wrongEl.innerText = buildWrongExplanation(selected, qData);
+    wrongEl.classList.remove("hidden");
+  }
+  panel.classList.remove("hidden");
+}
+
+function addCount(target, key, amount) {
+  if (!key) return;
+  target[key] = (target[key] || 0) + amount;
+}
+
+function getTopEntry(counts) {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0];
+}
+
+function getTopEntries(counts, limit) {
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+function analyzeMistakes() {
+  const result = document.getElementById("analysis-result");
+  result.innerHTML = "";
+  const totalWrongChoices = Object.values(wrongChoiceCounts).reduce((sum, v) => sum + v, 0);
+  if (totalWrongChoices === 0) {
+    result.innerText = "まだ不正解データがありません。まずはクイズに挑戦してください。";
+    return;
+  }
+
+  const aggregates = { theme: {}, region: {}, era: {}, type: {}, difficulty: {} };
+  Object.entries(wrongChoiceCounts).forEach(([answer, count]) => {
+    const qData = findQuestionByAnswer(answer);
+    if (!qData) return;
+    addCount(aggregates.theme, qData.theme, count);
+    addCount(aggregates.region, qData.region, count);
+    addCount(aggregates.era, qData.era, count);
+    addCount(aggregates.type, qData.type, count);
+    addCount(aggregates.difficulty, qData.difficulty, count);
+  });
+
+  const summary = document.createElement("div");
+  summary.innerText = `AI分析結果: 不正解の選択肢 ${totalWrongChoices}件を解析しました。`;
+  result.appendChild(summary);
+
+  const list = document.createElement("ul");
+  list.className = "analysis-list";
+  const topTheme = getTopEntry(aggregates.theme);
+  const topRegion = getTopEntry(aggregates.region);
+  const topEra = getTopEntry(aggregates.era);
+  const topType = getTopEntry(aggregates.type);
+  const topDifficulty = getTopEntry(aggregates.difficulty);
+
+  const addSummaryItem = (label, entry) => {
+    if (!entry) return;
+    const li = document.createElement("li");
+    li.innerText = `${label}: ${entry[0]}（${entry[1]}回）`;
+    list.appendChild(li);
+  };
+  addSummaryItem("苦手テーマ", topTheme);
+  addSummaryItem("苦手地域", topRegion);
+  addSummaryItem("苦手時代", topEra);
+  addSummaryItem("苦手ジャンル", topType);
+  addSummaryItem("苦手難易度", topDifficulty);
+
+  const topWrongChoices = getTopEntries(wrongChoiceCounts, 3);
+  if (topWrongChoices.length > 0) {
+    const li = document.createElement("li");
+    const details = topWrongChoices.map(([answer, count]) => {
+      const qData = findQuestionByAnswer(answer);
+      if (qData) {
+        return `「${answer}」${count}回（${qData.theme}/${qData.region}）`;
+      }
+      return `「${answer}」${count}回`;
+    });
+    li.innerText = `よく選ぶ不正解: ${details.join(" / ")}`;
+    list.appendChild(li);
+  }
+
+  const topQuestions = Object.entries(mistakeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  if (topQuestions.length > 0) {
+    const li = document.createElement("li");
+    const details = topQuestions.map(([question, count]) => `「${question}」${count}回`);
+    li.innerText = `よく間違える問題: ${details.join(" / ")}`;
+    list.appendChild(li);
+  }
+
+  if (list.childElementCount > 0) {
+    result.appendChild(list);
+  }
+}
+
 function startQuiz() {
   const filterType = document.getElementById("filter-type").value;
   const filterTheme = document.getElementById("filter-theme").value;
@@ -1363,6 +1530,11 @@ function showQuestion() {
   document.getElementById("question-text").innerText = qData.question;
   document.getElementById("question-text").style.color = getQuestionColorByMistake(mistakes);
   document.getElementById("feedback").innerText = "";
+  document.getElementById("explanation-panel").classList.add("hidden");
+  document.getElementById("explanation-correct").innerText = "";
+  const wrongExplanation = document.getElementById("explanation-wrong");
+  wrongExplanation.innerText = "";
+  wrongExplanation.classList.add("hidden");
   document.getElementById("next-btn").classList.add("hidden");
 
   // 選択肢の生成 (正解1つ + 不正解3つ)
@@ -1403,12 +1575,13 @@ function showQuestion() {
     const btn = document.createElement("button");
     btn.className = "choice-btn";
     btn.innerText = choice;
-    btn.onclick = () => checkAnswer(btn, choice, qData.answer);
+    btn.onclick = () => checkAnswer(btn, choice, qData);
     container.appendChild(btn);
   });
 }
 
-function checkAnswer(btn, selected, correct) {
+function checkAnswer(btn, selected, qData) {
+  const correct = qData.answer;
   // ボタンを非活性化
   const buttons = document.querySelectorAll(".choice-btn");
   buttons.forEach(b => b.disabled = true);
@@ -1431,6 +1604,7 @@ function checkAnswer(btn, selected, correct) {
     });
     mistakeCounts[wrongQuestion] = (mistakeCounts[wrongQuestion] || 0) + 1;
     saveMistakeCounts();
+    recordWrongChoice(selected);
     document.getElementById("question-text").style.color =
       getQuestionColorByMistake(mistakeCounts[wrongQuestion]);
 
@@ -1449,6 +1623,7 @@ function checkAnswer(btn, selected, correct) {
       if(b.innerText === correct) b.classList.add("correct");
     });
   }
+  renderExplanation(qData, selected, selected === correct);
   answeredCount++;
   document.getElementById("next-btn").classList.remove("hidden");
 }
