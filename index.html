@@ -11,6 +11,8 @@
   .filter-group { margin-bottom: 15px; }
   label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
   select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; background-color: #fff; }
+  input[type="text"],
+  input[type="password"] { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; background-color: #fff; box-sizing: border-box; }
   button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 10px; font-weight: bold; transition: background-color 0.2s; }
   button:hover { background-color: #2980b9; }
   .choice-btn { background-color: #ecf0f1; color: #333; text-align: left; margin-bottom: 10px; padding: 15px; border-radius: 5px; font-size: 1em; }
@@ -38,6 +40,8 @@
   .analysis-result { margin-top: 8px; font-size: 0.9em; color: #333; line-height: 1.5; }
   .analysis-list { margin: 6px 0 0; padding-left: 18px; }
   .analysis-muted { color: #6b7280; font-size: 0.85em; margin-bottom: 6px; }
+  .ai-settings-note { color: #6b7280; font-size: 0.8em; line-height: 1.4; margin-top: 6px; }
+  .ai-settings-row { margin-bottom: 10px; }
   .secondary-btn { background-color: #8e44ad; }
   .secondary-btn:hover { background-color: #7d3c98; }
   .celebrate { position: fixed; font-size: 18px; pointer-events: none; animation: pop 800ms ease-out forwards; z-index: 9999; }
@@ -112,6 +116,26 @@
       <input type="checkbox" id="focus-mistakes-mode">
       ❗ 間違えた問題を重点的に解くモード
     </label>
+  </div>
+
+  <div class="analysis-panel" id="ai-settings">
+    <div class="analysis-title">AI解説設定</div>
+    <div class="analysis-muted">AI解説を表示する場合はOpenAI互換APIの情報を入力してください。</div>
+    <div class="ai-settings-row">
+      <label>APIキー</label>
+      <input id="ai-api-key" type="password" placeholder="sk-..." autocomplete="off">
+    </div>
+    <div class="ai-settings-row">
+      <label>APIエンドポイント</label>
+      <input id="ai-api-endpoint" type="text" placeholder="https://api.openai.com/v1/chat/completions">
+    </div>
+    <div class="ai-settings-row">
+      <label>モデル名</label>
+      <input id="ai-api-model" type="text" placeholder="gpt-4o-mini">
+    </div>
+    <div class="ai-settings-note">
+      APIキーはブラウザのlocalStorageに保存され、リクエストはブラウザから直接送信されます。CORS制限がある場合は中継APIをご利用ください。
+    </div>
   </div>
 
   <button onclick="startQuiz()">クイズをはじめる</button>
@@ -1243,6 +1267,11 @@ const allAnswers = [...new Set(questionDB.map(d => d.answer))];
 const STATS_KEY = "worldHistoryStatsV1";
 const MISTAKE_KEY = "worldHistoryMistakeCountsV1";
 const WRONG_CHOICE_KEY = "worldHistoryWrongChoiceCountsV1";
+const AI_SETTINGS_KEY = "worldHistoryAiSettingsV1";
+const DEFAULT_AI_SETTINGS = {
+  endpoint: "https://api.openai.com/v1/chat/completions",
+  model: "gpt-4o-mini"
+};
 let currentQuestions = [];
 let currentIndex = 0;
 let score = 0;
@@ -1258,6 +1287,98 @@ let segmentMistakes = [];
 
 function isPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function loadAiSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || "{}");
+    const validated = isPlainObject(parsed) ? parsed : {};
+    return {
+      apiKey: typeof validated.apiKey === "string" ? validated.apiKey : "",
+      endpoint: typeof validated.endpoint === "string" && validated.endpoint.trim()
+        ? validated.endpoint.trim()
+        : DEFAULT_AI_SETTINGS.endpoint,
+      model: typeof validated.model === "string" && validated.model.trim()
+        ? validated.model.trim()
+        : DEFAULT_AI_SETTINGS.model
+    };
+  } catch (_) {
+    return { apiKey: "", ...DEFAULT_AI_SETTINGS };
+  }
+}
+
+let aiSettings = loadAiSettings();
+let explanationRequestId = 0;
+
+function saveAiSettings() {
+  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
+}
+
+function updateAiSettingsFromInputs() {
+  const keyInput = document.getElementById("ai-api-key");
+  const endpointInput = document.getElementById("ai-api-endpoint");
+  const modelInput = document.getElementById("ai-api-model");
+  if (!keyInput || !endpointInput || !modelInput) return;
+  aiSettings = {
+    apiKey: keyInput.value.trim(),
+    endpoint: endpointInput.value.trim() || DEFAULT_AI_SETTINGS.endpoint,
+    model: modelInput.value.trim() || DEFAULT_AI_SETTINGS.model
+  };
+  saveAiSettings();
+}
+
+function initAiSettings() {
+  const keyInput = document.getElementById("ai-api-key");
+  const endpointInput = document.getElementById("ai-api-endpoint");
+  const modelInput = document.getElementById("ai-api-model");
+  if (!keyInput || !endpointInput || !modelInput) return;
+  keyInput.value = aiSettings.apiKey;
+  endpointInput.value = aiSettings.endpoint || DEFAULT_AI_SETTINGS.endpoint;
+  modelInput.value = aiSettings.model || DEFAULT_AI_SETTINGS.model;
+  [keyInput, endpointInput, modelInput].forEach(input => {
+    input.addEventListener("input", updateAiSettingsFromInputs);
+  });
+}
+
+function canUseAiExplanation() {
+  return Boolean(aiSettings.apiKey && aiSettings.endpoint && aiSettings.model);
+}
+
+function buildAiPrompt(qData, selected, isCorrect) {
+  const verdict = isCorrect ? "正解" : "不正解";
+  return `問題: ${qData.question}\n正解: ${qData.answer}\nあなたの回答: ${selected}\n判定: ${verdict}\n分類: ${qData.theme}/${qData.region}/${qData.era}/${qData.type}\n上記の内容を踏まえ、学習者向けに2〜3文で簡潔な解説を日本語で作成してください。`;
+}
+
+async function requestAiExplanation(qData, selected, isCorrect) {
+  if (!canUseAiExplanation()) return null;
+  const payload = {
+    model: aiSettings.model || DEFAULT_AI_SETTINGS.model,
+    messages: [
+      { role: "system", content: "あなたは世界史の学習アプリの解説担当です。簡潔で分かりやすい日本語の解説のみを返してください。" },
+      { role: "user", content: buildAiPrompt(qData, selected, isCorrect) }
+    ],
+    temperature: 0.6,
+    max_tokens: 220
+  };
+
+  const response = await fetch(aiSettings.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${aiSettings.apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("AI request failed");
+  }
+
+  const data = await response.json();
+  const content = data && data.choices && data.choices[0] && data.choices[0].message
+    ? data.choices[0].message.content
+    : "";
+  return typeof content === "string" && content.trim() ? content.trim() : null;
 }
 
 function getTodayDateKey() {
@@ -1389,15 +1510,49 @@ function renderExplanation(qData, selected, isCorrect) {
   const panel = document.getElementById("explanation-panel");
   const correctEl = document.getElementById("explanation-correct");
   const wrongEl = document.getElementById("explanation-wrong");
-  correctEl.innerText = buildCorrectExplanation(qData);
+  const fallbackCorrect = buildCorrectExplanation(qData);
+  const fallbackWrong = isCorrect ? "" : buildWrongExplanation(selected, qData);
+  panel.classList.remove("hidden");
+
+  if (!canUseAiExplanation()) {
+    correctEl.innerText = fallbackCorrect;
+    if (isCorrect) {
+      wrongEl.innerText = "";
+      wrongEl.classList.add("hidden");
+    } else {
+      wrongEl.innerText = fallbackWrong;
+      wrongEl.classList.remove("hidden");
+    }
+    return;
+  }
+
+  const requestId = ++explanationRequestId;
+  correctEl.innerText = "AI解説を生成中...";
   if (isCorrect) {
     wrongEl.innerText = "";
     wrongEl.classList.add("hidden");
   } else {
-    wrongEl.innerText = buildWrongExplanation(selected, qData);
+    wrongEl.innerText = "関連情報を整理中...";
     wrongEl.classList.remove("hidden");
   }
-  panel.classList.remove("hidden");
+
+  requestAiExplanation(qData, selected, isCorrect)
+    .then(explanation => {
+      if (requestId !== explanationRequestId) return;
+      correctEl.innerText = explanation || fallbackCorrect;
+      if (!isCorrect) {
+        wrongEl.innerText = fallbackWrong;
+        wrongEl.classList.remove("hidden");
+      }
+    })
+    .catch(() => {
+      if (requestId !== explanationRequestId) return;
+      correctEl.innerText = fallbackCorrect;
+      if (!isCorrect) {
+        wrongEl.innerText = fallbackWrong;
+        wrongEl.classList.remove("hidden");
+      }
+    });
 }
 
 function incrementAggregate(target, key, amount) {
@@ -1494,6 +1649,7 @@ function analyzeMistakes() {
 }
 
 function startQuiz() {
+  updateAiSettingsFromInputs();
   const filterType = document.getElementById("filter-type").value;
   const filterTheme = document.getElementById("filter-theme").value;
   const filterRegion = document.getElementById("filter-region").value;
@@ -1737,6 +1893,7 @@ function returnToTitle() {
   document.getElementById("setup-screen").classList.remove("hidden");
   renderHomeStats();
 }
+initAiSettings();
 renderHomeStats();
 </script>
 </body>
