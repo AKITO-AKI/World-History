@@ -126,7 +126,7 @@
   </div>
 
   <div class="analysis-panel">
-    <div class="analysis-title"><span aria-hidden="true">🤖</span> AI苦手分析</div>
+    <div class="analysis-title">AI苦手分析</div>
     <div class="analysis-muted">不正解の選択肢を集計して、苦手分野を自動で解析します。</div>
     <button class="secondary-btn" onclick="analyzeMistakes()">AIに解析させる</button>
     <div id="analysis-result" class="analysis-result"></div>
@@ -139,7 +139,7 @@
   <div id="choices-container"></div>
   <p id="feedback"></p>
   <div id="explanation-panel" class="explanation-panel hidden">
-    <div class="explanation-title"><span aria-hidden="true">🤖</span> AI解説</div>
+    <div class="explanation-title">AI解説</div>
     <div id="explanation-correct" class="explanation-item"></div>
     <div id="explanation-wrong" class="explanation-item hidden"></div>
   </div>
@@ -1263,9 +1263,12 @@ function getTodayDateKey() {
 function loadStats() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "{}");
+    const safeParsed = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     return {
-      totalDefeated: Number(parsed.totalDefeated || 0),
-      dailyDefeated: parsed.dailyDefeated && typeof parsed.dailyDefeated === "object" ? parsed.dailyDefeated : {}
+      totalDefeated: Number(safeParsed.totalDefeated || 0),
+      dailyDefeated: safeParsed.dailyDefeated && typeof safeParsed.dailyDefeated === "object" && !Array.isArray(safeParsed.dailyDefeated)
+        ? safeParsed.dailyDefeated
+        : {}
     };
   } catch (_) {
     return { totalDefeated: 0, dailyDefeated: {} };
