@@ -126,6 +126,12 @@
       <input id="ai-api-key" type="password" placeholder="sk-..." autocomplete="off">
     </div>
     <div class="ai-settings-row">
+      <label style="font-weight: normal;">
+        <input type="checkbox" id="ai-remember-key">
+        APIキーをこのブラウザに保存する
+      </label>
+    </div>
+    <div class="ai-settings-row">
       <label>APIエンドポイント</label>
       <input id="ai-api-endpoint" type="text" placeholder="https://api.openai.com/v1/chat/completions">
     </div>
@@ -134,7 +140,7 @@
       <input id="ai-api-model" type="text" placeholder="gpt-4o-mini">
     </div>
     <div class="ai-settings-note">
-      APIキーはブラウザのlocalStorageに保存され、リクエストはブラウザから直接送信されます。共有端末では入力しないでください。CORS制限がある場合は中継APIをご利用ください。
+      「保存する」を選ぶとAPIキーはブラウザのlocalStorageに保存されます。開発者ツールや通信ログから確認できるため共有端末では入力しないでください。CORS制限がある場合は中継APIをご利用ください。
     </div>
   </div>
 
@@ -1294,8 +1300,12 @@ function loadAiSettings() {
   try {
     const parsed = JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || "{}");
     const validated = isPlainObject(parsed) ? parsed : {};
+    const rememberKey = typeof validated.rememberKey === "boolean"
+      ? validated.rememberKey
+      : Boolean(validated.apiKey);
     return {
-      apiKey: typeof validated.apiKey === "string" ? validated.apiKey : "",
+      apiKey: rememberKey && typeof validated.apiKey === "string" ? validated.apiKey : "",
+      rememberKey,
       endpoint: typeof validated.endpoint === "string" && validated.endpoint.trim()
         ? validated.endpoint.trim()
         : DEFAULT_AI_SETTINGS.endpoint,
@@ -1303,8 +1313,9 @@ function loadAiSettings() {
         ? validated.model.trim()
         : DEFAULT_AI_SETTINGS.model
     };
-  } catch (_) {
-    return { apiKey: "", ...DEFAULT_AI_SETTINGS };
+  } catch (error) {
+    console.warn("AI設定の読み込みに失敗しました。", error);
+    return { apiKey: "", rememberKey: false, ...DEFAULT_AI_SETTINGS };
   }
 }
 
@@ -1312,16 +1323,22 @@ let aiSettings = loadAiSettings();
 let latestExplanationRequestId = 0; // 最新のAI解説のみ反映するためのID
 
 function saveAiSettings() {
-  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
+  const storedSettings = {
+    ...aiSettings,
+    apiKey: aiSettings.rememberKey ? aiSettings.apiKey : ""
+  };
+  localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(storedSettings));
 }
 
 function updateAiSettingsFromInputs() {
   const keyInput = document.getElementById("ai-api-key");
+  const rememberInput = document.getElementById("ai-remember-key");
   const endpointInput = document.getElementById("ai-api-endpoint");
   const modelInput = document.getElementById("ai-api-model");
-  if (!keyInput || !endpointInput || !modelInput) return;
+  if (!keyInput || !rememberInput || !endpointInput || !modelInput) return;
   aiSettings = {
     apiKey: keyInput.value.trim(),
+    rememberKey: rememberInput.checked,
     endpoint: endpointInput.value.trim() || DEFAULT_AI_SETTINGS.endpoint,
     model: modelInput.value.trim() || DEFAULT_AI_SETTINGS.model
   };
@@ -1330,13 +1347,15 @@ function updateAiSettingsFromInputs() {
 
 function initAiSettings() {
   const keyInput = document.getElementById("ai-api-key");
+  const rememberInput = document.getElementById("ai-remember-key");
   const endpointInput = document.getElementById("ai-api-endpoint");
   const modelInput = document.getElementById("ai-api-model");
-  if (!keyInput || !endpointInput || !modelInput) return;
+  if (!keyInput || !rememberInput || !endpointInput || !modelInput) return;
   keyInput.value = aiSettings.apiKey;
+  rememberInput.checked = aiSettings.rememberKey;
   endpointInput.value = aiSettings.endpoint || DEFAULT_AI_SETTINGS.endpoint;
   modelInput.value = aiSettings.model || DEFAULT_AI_SETTINGS.model;
-  [keyInput, endpointInput, modelInput].forEach(input => {
+  [keyInput, rememberInput, endpointInput, modelInput].forEach(input => {
     input.addEventListener("input", updateAiSettingsFromInputs);
   });
 }
@@ -1372,8 +1391,8 @@ async function requestAiExplanation(qData, selected, isCorrect) {
       },
       body: JSON.stringify(payload)
     });
-  } catch (_) {
-    throw new Error("AI request failed due to network error");
+  } catch (error) {
+    throw new Error(`AI request failed due to network error: ${error.message}`);
   }
 
   if (!response.ok) {
@@ -1549,7 +1568,8 @@ function renderExplanation(qData, selected, isCorrect) {
         wrongEl.classList.remove("hidden");
       }
     })
-    .catch(() => {
+    .catch(error => {
+      console.warn("AI解説の取得に失敗しました。", error);
       if (requestId !== latestExplanationRequestId) return;
       correctEl.innerText = fallbackCorrect;
       if (!isCorrect) {
